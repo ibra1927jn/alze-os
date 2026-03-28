@@ -72,14 +72,15 @@ static int xhci_reset(void) {
     xhci_op_write32(XHCI_OP_USBCMD, cmd);
 
     /* Esperar a que se detenga (HCHalted = 1) */
-    for (int i = 0; i < 100000; i++) {
-        if (xhci_op_read32(XHCI_OP_USBSTS) & XHCI_STS_HCH) break;
-        asm volatile("pause");
-    }
-
-    if (!(xhci_op_read32(XHCI_OP_USBSTS) & XHCI_STS_HCH)) {
-        LOG_ERROR("xHCI: controller did not halt");
-        return -1;
+    {
+        int timeout = 100000;
+        while (!(xhci_op_read32(XHCI_OP_USBSTS) & XHCI_STS_HCH) && --timeout > 0) {
+            asm volatile("pause");
+        }
+        if (timeout == 0) {
+            LOG_ERROR("xHCI: timeout waiting for controller halt");
+            return -1;
+        }
     }
 
     /* Paso 2: reset (HCRST bit) */
@@ -88,25 +89,27 @@ static int xhci_reset(void) {
     xhci_op_write32(XHCI_OP_USBCMD, cmd);
 
     /* Esperar a que el reset termine (HCRST se limpia solo) */
-    for (int i = 0; i < 1000000; i++) {
-        if (!(xhci_op_read32(XHCI_OP_USBCMD) & XHCI_CMD_HCRST)) break;
-        asm volatile("pause");
-    }
-
-    if (xhci_op_read32(XHCI_OP_USBCMD) & XHCI_CMD_HCRST) {
-        LOG_ERROR("xHCI: reset did not complete");
-        return -1;
+    {
+        int timeout = 1000000;
+        while ((xhci_op_read32(XHCI_OP_USBCMD) & XHCI_CMD_HCRST) && --timeout > 0) {
+            asm volatile("pause");
+        }
+        if (timeout == 0) {
+            LOG_ERROR("xHCI: timeout waiting for reset completion");
+            return -1;
+        }
     }
 
     /* Paso 3: esperar Controller Not Ready = 0 */
-    for (int i = 0; i < 1000000; i++) {
-        if (!(xhci_op_read32(XHCI_OP_USBSTS) & XHCI_STS_CNR)) break;
-        asm volatile("pause");
-    }
-
-    if (xhci_op_read32(XHCI_OP_USBSTS) & XHCI_STS_CNR) {
-        LOG_ERROR("xHCI: controller not ready after reset");
-        return -1;
+    {
+        int timeout = 1000000;
+        while ((xhci_op_read32(XHCI_OP_USBSTS) & XHCI_STS_CNR) && --timeout > 0) {
+            asm volatile("pause");
+        }
+        if (timeout == 0) {
+            LOG_ERROR("xHCI: timeout waiting for controller ready after reset");
+            return -1;
+        }
     }
 
     return 0;

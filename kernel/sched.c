@@ -426,7 +426,23 @@ __hot void sched_tick(void) {
 
     /* CPU accounting */
     cur->ticks_used++;
-    cur->watchdog_ticks++;  /* Watchdog: counts uninterrupted ticks */
+    cur->watchdog_ticks++;  /* Watchdog: cuenta ticks sin ceder CPU */
+
+    /* Watchdog enforcement: matar tareas colgadas (~100s a 100Hz).
+     * No matar idle ni init (TID 0/1) — solo tareas de usuario. */
+    #define WATCHDOG_LIMIT 10000
+    if (cur->watchdog_ticks >= WATCHDOG_LIMIT && cur->tid > 1) {
+        kprintf(ANSI_RED "[WATCHDOG] Task '%s' (TID %u) exceeded %u ticks without yielding — killing\n" ANSI_RESET,
+                cur->name, cur->tid, WATCHDOG_LIMIT);
+        cur->state = TASK_DEAD;
+        cur->finished = true;
+        if (cur->join_wq) {
+            wq_wake_all(cur->join_wq);
+        }
+        list_push_back(&dead_queue, &cur->run_node);
+        set_need_resched(1);
+        return;
+    }
 
     /* Per-QoS quantum: only reschedule when quantum expires */
     if (cur->ticks_used % task_quantum(cur) == 0)

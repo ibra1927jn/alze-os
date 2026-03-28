@@ -251,6 +251,12 @@ void kfree(void *ptr) {
         spin_lock_irqsave(&large_lock, &irq_flags);
         void *base = (void *)(addr - 8);
         uint32_t order = (uint32_t)(*(uint64_t *)base);
+        /* Validar que el order no fue corrompido antes de usarlo */
+        if (order > PMM_MAX_ORDER) {
+            kprintf("[kmalloc] corrupted large header: order=%u\n", order);
+            spin_unlock_irqrestore(&large_lock, irq_flags);
+            return;  /* No liberar con order invalido */
+        }
         memset(base, POISON_BYTE, (1UL << order) * PAGE_SIZE);
         uint64_t phys = virt_to_phys(base);
         pmm_free_pages(phys, order);
@@ -343,6 +349,11 @@ uint64_t kmalloc_usable_size(void *ptr) {
     if (((addr - 8) & (PAGE_SIZE - 1)) == 0) {
         void *base = (void *)(addr - 8);
         uint32_t order = (uint32_t)(*(uint64_t *)base);
+        /* Validar order corrompido antes de calcular tamano */
+        if (order > PMM_MAX_ORDER) {
+            kprintf("[kmalloc] corrupted large header in usable_size: order=%u\n", order);
+            return 0;
+        }
         return ((1UL << order) * PAGE_SIZE) - 8;
     }
 
