@@ -3,18 +3,20 @@
  *
  * Mecanismo de invalidacion TLB cross-CPU via IPI.
  *
- * Estado actual: single-core (PIC 8259A), el broadcast es un no-op.
- * Cuando se implemente LAPIC/SMP, solo hay que rellenar lapic_send_ipi()
- * y actualizar active_cpus. La infraestructura ya esta lista.
+ * Usa el driver LAPIC para enviar IPIs y senalar EOI.
+ * En single-core (active_cpus == 1) el broadcast es un no-op seguro.
+ * Cuando SMP AP startup incremente active_cpus, los IPIs se envian
+ * via lapic_send_ipi_all() del driver LAPIC.
  */
 
 #include "tlb_shootdown.h"
+#include "lapic.h"
 #include "memory.h"
 #include "percpu.h"
 #include "kprintf.h"
 #include "log.h"
 
-/* ── Estado global del shootdown ─────────────────────────────── */
+/* ── Estado global del shootdown ─────────────────────────────────── */
 
 struct tlb_shootdown_state tlb_sd = {
     .target_addr  = 0,
@@ -26,35 +28,7 @@ struct tlb_shootdown_state tlb_sd = {
 /* Numero de CPUs activas. BSP = 1. SMP startup incrementa esto. */
 static volatile uint32_t active_cpus = 1;
 
-/* ── Stub: enviar IPI via LAPIC ──────────────────────────────── */
-
-/*
- * Envia un IPI a todas las CPUs excepto la actual.
- * TODO (SMP): escribir al LAPIC ICR (Interrupt Command Register):
- *   - ICR Low:  vector | delivery=fixed | dest=all-excluding-self
- *   - ICR High: 0 (broadcast)
- *
- * LAPIC ICR (registro 0x300/0x310 del LAPIC MMIO):
- *   Bits 0-7:   Vector (IPI_TLB_SHOOTDOWN = 0xFE)
- *   Bits 8-10:  Delivery Mode (000 = Fixed)
- *   Bit 11:     Destination Mode (0 = Physical)
- *   Bit 12:     Delivery Status (read-only)
- *   Bit 14:     Level (1 = Assert)
- *   Bit 15:     Trigger (0 = Edge)
- *   Bits 18-19: Destination Shorthand (11 = All Excluding Self)
- */
-static inline void lapic_send_ipi_all_others(uint8_t vector) {
-    /* Sin LAPIC todavia — no-op seguro en single-core.
-     * Cuando LAPIC este disponible:
-     *   volatile uint32_t *icr_low  = (uint32_t *)PHYS2VIRT(0xFEE00300);
-     *   volatile uint32_t *icr_high = (uint32_t *)PHYS2VIRT(0xFEE00310);
-     *   *icr_high = 0;
-     *   *icr_low  = vector | (0b11 << 18);  // All Excluding Self
-     */
-    (void)vector;
-}
-
-/* ── Inicializacion ──────────────────────────────────────────── */
+/* ── Inicializacion ──────────────────────────────────────────────── */
 
 void tlb_shootdown_init(void) {
     /* ISR stub registrado en IDT por idt_init() (vector 0xFE → isr_stub_254).
@@ -64,7 +38,7 @@ void tlb_shootdown_init(void) {
            IPI_TLB_SHOOTDOWN, active_cpus);
 }
 
-/* ── Broadcast: pedir a todas las CPUs que invaliden ─────────── */
+/* ── Broadcast: pedir a todas las CPUs que invaliden ─────────────── */
 
 void tlb_shootdown_broadcast(uint64_t virt) {
     /* Single-core: nada que hacer, el caller ya hizo invlpg local */
@@ -81,8 +55,10 @@ void tlb_shootdown_broadcast(uint64_t virt) {
     /* Barrera de memoria: asegurar que el estado es visible antes del IPI */
     asm volatile("mfence" ::: "memory");
 
-    /* Enviar IPI a todas las demas CPUs */
-    lapic_send_ipi_all_others(IPI_TLB_SHOOTDOWN);
+    /* Enviar IPI a todas las demas CPUs via LAPIC driver */
+    if (lapic_is_enabled()) {
+        lapic_send_ipi_all(IPI_TLB_SHOOTDOWN);
+    }
 
     /* Esperar a que todas las CPUs confirmen.
      * Busy-wait con pause para no saturar el bus.
@@ -95,7 +71,7 @@ void tlb_shootdown_broadcast(uint64_t virt) {
     spin_unlock_irqrestore(&tlb_sd.lock, irq_flags);
 }
 
-/* ── IPI Handler: ejecutado en la CPU receptora ──────────────── */
+/* ── IPI Handler: ejecutado en la CPU receptora ──────────────────── */
 
 void tlb_shootdown_ipi_handler(void) {
     /* Leer la direccion objetivo y ejecutar invlpg */
@@ -105,16 +81,13 @@ void tlb_shootdown_ipi_handler(void) {
     /* Confirmar que esta CPU ya invalido */
     __atomic_fetch_add(&tlb_sd.ack_count, 1, __ATOMIC_RELEASE);
 
-    /* EOI al LAPIC.
-     * El LAPIC EOI register esta en 0xFEE000B0 (fisico).
-     * Escribir cualquier valor (convencion: 0) senala fin de interrupcion.
-     * En single-core sin LAPIC activo, esta escritura es inofensiva
-     * porque el handler nunca se invoca (no hay IPI sin LAPIC). */
-    volatile uint32_t *lapic_eoi = (volatile uint32_t *)PHYS2VIRT(0xFEE000B0);
-    *lapic_eoi = 0;
+    /* EOI al LAPIC via driver.
+     * En single-core sin LAPIC activo, este handler nunca se invoca
+     * porque no hay IPI sin LAPIC, asi que el check es una proteccion extra. */
+    lapic_eoi();
 }
 
-/* ── Query ───────────────────────────────────────────────────── */
+/* ── Query ───────────────────────────────────────────────────────── */
 
 uint32_t tlb_shootdown_cpu_count(void) {
     return active_cpus;

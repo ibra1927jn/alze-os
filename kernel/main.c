@@ -30,6 +30,7 @@
 #include "mempressure.h"
 #include "watchdog.h"
 #include "tlb_shootdown.h"
+#include "lapic.h"
 #include "ramdisk.h"
 #include "ext2.h"
 #include "pci.h"
@@ -129,7 +130,7 @@ void _start(void) {
 
     /* 6. IDT — catch exceptions + handle IRQs */
     idt_init();
-    LOG_OK("IDT loaded (#DE #UD #DF #GP #PF + IRQ0/1)");
+    LOG_OK("IDT loaded (#DE #UD #DF #GP #PF + IRQ0/1 + LAPIC timer/IPI)");
 
     /* 6b. Per-CPU data — MUST be before sti (sched_tick reads GS) */
     percpu_init_bsp();
@@ -238,17 +239,22 @@ void _start(void) {
     watchdog_init();
 
     /* ─────────────────────────────────────────────────────────────
-     * 13d. TLB Shootdown — ISR stub ya registrado en IDT
+     * 13d. LAPIC — Local APIC driver (IPIs, timer, EOI)
+     * ───────────────────────────────────────────────────────────── */
+    lapic_init();
+
+    /* ─────────────────────────────────────────────────────────────
+     * 13e. TLB Shootdown — ISR stub ya registrado en IDT
      * ───────────────────────────────────────────────────────────── */
     tlb_shootdown_init();
 
     /* ─────────────────────────────────────────────────────────────
-     * 13e. Ramdisk + ext2 — boot module como filesystem
+     * 13f. Ramdisk + ext2 — boot module como filesystem
      * ───────────────────────────────────────────────────────────── */
     ramdisk_init();
 
     /* ─────────────────────────────────────────────────────────────
-     * 13f. PCI + USB — enumeracion y deteccion xHCI
+     * 13g. PCI + USB — enumeracion y deteccion xHCI
      * ───────────────────────────────────────────────────────────── */
     pci_enumerate();
     xhci_init();

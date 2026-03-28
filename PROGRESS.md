@@ -11,9 +11,9 @@
 - [2026-03-28] | Ramdisk driver (Limine boot module backed, auto-mounts ext2 if valid) | Pending commit
 - [2026-03-28] | PCI enumeration (mechanism 1, full bus scan, find by class/sub/progif) | Pending commit
 - [2026-03-28] | xHCI USB 3.x minimal detection (PCI probe, BAR0 MMIO, reset, port enumeration) | Pending commit
+- [2026-03-28] | LAPIC driver (init, EOI, IPI, timer calibration via PIT ch2, MMIO r/w, refactored TLB shootdown) | Pending commit
 
 ## Pendiente
-- LAPIC driver implementation | Prioridad: alta
 - SMP AP startup (update active_cpus for TLB shootdown) | Prioridad: media
 - ext2 indirect block support (single/double/triple indirect) | Prioridad: baja
 - xHCI full initialization (device context, command/event rings, transfers) | Prioridad: baja

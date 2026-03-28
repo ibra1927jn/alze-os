@@ -62,6 +62,7 @@ extern void isr_stub_14(void);
 extern void isr_stub_16(void);
 extern void isr_stub_32(void);  /* IRQ0: Timer */
 extern void isr_stub_33(void);  /* IRQ1: Keyboard */
+extern void isr_stub_253(void); /* LAPIC Timer (vector 0xFD) */
 extern void isr_stub_254(void); /* IPI: TLB Shootdown (vector 0xFE) */
 
 /* ── Exception names ──────────────────────────────────────────── */
@@ -195,7 +196,8 @@ void idt_init(void) {
     idt_set_gate(32, isr_stub_32, 0);  /* IRQ0: Timer */
     idt_set_gate(33, isr_stub_33, 0);  /* IRQ1: Keyboard */
 
-    /* IPI vectors (LAPIC, fuera del rango PIC) */
+    /* LAPIC vectors (fuera del rango PIC) */
+    idt_set_gate(253, isr_stub_253, 0);  /* LAPIC Timer (0xFD) */
     idt_set_gate(254, isr_stub_254, 0);  /* TLB Shootdown IPI (0xFE) */
 
     idtr.limit = sizeof(idt) - 1;

@@ -81,9 +81,63 @@ isr_stub_%1:
 IRQ_STUB 32
 IRQ_STUB 33
 
+;; ── LAPIC Timer stub (vector 0xFD = 253) ──────────────────────────
+;; Timer local del LAPIC, independiente del PIT.
+;; EOI va al LAPIC (el handler C llama lapic_eoi()).
+
+extern lapic_timer_handler_c
+
+global isr_stub_253
+isr_stub_253:
+    push    qword 0          ; dummy error code
+    push    qword 253        ; vector number
+
+    ;; Guardar todos los registros de proposito general
+    push    rax
+    push    rbx
+    push    rcx
+    push    rdx
+    push    rsi
+    push    rdi
+    push    rbp
+    push    r8
+    push    r9
+    push    r10
+    push    r11
+    push    r12
+    push    r13
+    push    r14
+    push    r15
+
+    ;; Llamar al handler C del timer LAPIC
+    call    lapic_timer_handler_c
+
+    ;; Restaurar todos los registros
+    pop     r15
+    pop     r14
+    pop     r13
+    pop     r12
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    pop     rbp
+    pop     rdi
+    pop     rsi
+    pop     rdx
+    pop     rcx
+    pop     rbx
+    pop     rax
+
+    ;; Remover vector y error code del stack
+    add     rsp, 16
+
+    iretq
+
 ;; ── TLB Shootdown IPI stub (vector 0xFE = 254) ─────────────────
 ;; Este vector lo envia el LAPIC desde otra CPU para invalidar TLB.
 ;; No viene del PIC asi que el EOI va al LAPIC, no al 8259A.
+;; El handler C (tlb_shootdown_ipi_handler) llama lapic_eoi().
 
 extern tlb_shootdown_ipi_handler
 
@@ -109,15 +163,8 @@ isr_stub_254:
     push    r14
     push    r15
 
-    ;; Llamar al handler C que ejecuta invlpg + ack
+    ;; Llamar al handler C que ejecuta invlpg + ack + lapic_eoi()
     call    tlb_shootdown_ipi_handler
-
-    ;; EOI al LAPIC (registro 0xFEE000B0).
-    ;; Escribir 0 al End-Of-Interrupt register.
-    ;; Seguro en single-core: la direccion no esta mapeada aun,
-    ;; pero cuando LAPIC este activo esto es necesario.
-    ;; El handler C ya envia EOI si LAPIC esta disponible,
-    ;; pero lo dejamos aqui como fallback seguro.
 
     ;; Restaurar todos los registros
     pop     r15
@@ -214,4 +261,3 @@ irq_common:
     add     rsp, 16
 
     iretq
-
