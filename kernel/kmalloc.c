@@ -185,8 +185,14 @@ void *kmalloc(uint64_t size) {
 
         uint32_t order = 0;
         uint64_t needed = size + 8;
-        while ((1UL << order) * PAGE_SIZE < needed && order <= PMM_MAX_ORDER) {
+        while ((1UL << order) * PAGE_SIZE < needed && order < PMM_MAX_ORDER) {
             order++;
+        }
+
+        /* Verificar que el orden no excede el maximo permitido */
+        if (order > PMM_MAX_ORDER) {
+            spin_unlock_irqrestore(&large_lock, irq_flags);
+            return NULL;
         }
 
         uint64_t phys = pmm_alloc_pages_zero(order);

@@ -62,10 +62,16 @@ void tlb_shootdown_broadcast(uint64_t virt) {
 
     /* Esperar a que todas las CPUs confirmen.
      * Busy-wait con pause para no saturar el bus.
-     * Timeout implicito: si una CPU no responde, algo esta muy mal. */
+     * Timeout explicito para evitar hang si una CPU no responde. */
+    uint64_t timeout = 0;
     while (__atomic_load_n(&tlb_sd.ack_count, __ATOMIC_ACQUIRE)
            < tlb_sd.pending_cpus) {
         asm volatile("pause");
+        if (++timeout > 1000000) {
+            kprintf("[TLB] shootdown timeout: %u/%u CPUs acked\n",
+                    tlb_sd.ack_count, tlb_sd.pending_cpus);
+            break;
+        }
     }
 
     spin_unlock_irqrestore(&tlb_sd.lock, irq_flags);

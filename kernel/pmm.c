@@ -352,8 +352,20 @@ uint32_t pmm_ref_get(uint64_t phys_addr) {
     uint64_t pfn = phys_to_pfn(phys_addr);
     PMM_ASSERT(pfn < pmm.total_pfns);
 
+    /* Proteger lectura con lock, igual que ref_inc/ref_dec */
+    uint64_t irq_flags;
+#ifndef PMM_USERSPACE_TEST
+    spin_lock_irqsave(&pmm_lock, &irq_flags);
+#endif
+
     struct page *pg = pfn_to_page(pfn);
-    return pg->ref_count;
+    uint32_t count = pg->ref_count;
+
+#ifndef PMM_USERSPACE_TEST
+    spin_unlock_irqrestore(&pmm_lock, irq_flags);
+#endif
+
+    return count;
 }
 
 /* ── Userspace test init ──────────────────────────────────────── */

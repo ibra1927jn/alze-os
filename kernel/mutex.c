@@ -39,17 +39,17 @@ void mutex_lock(struct mutex *m) {
             return;
         }
 
-        /* Already locked — check if we should boost the owner */
+        /* Already locked — check if we should boost the owner.
+         * saved_priority se guarda al adquirir el mutex (linea de arriba),
+         * nunca aqui, para evitar sobreescribir la prioridad original
+         * si multiples tareas de alta prioridad esperan. */
         struct task *cur = task_current();
         struct task *owner = m->owner;
 
         if (owner && cur->priority < owner->priority) {
             /* Priority inheritance: boost owner to our priority
              * (lower number = higher priority) */
-            if (!m->priority_boosted) {
-                m->saved_priority = owner->priority;
-                m->priority_boosted = true;
-            }
+            m->priority_boosted = true;
             owner->priority = cur->priority;
         }
 

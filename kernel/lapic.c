@@ -138,14 +138,22 @@ static uint32_t lapic_calibrate_timer(void) {
 
     /* Esperar a que PIT channel 2 llegue a 0.
      * El bit 5 del port 0x61 indica el output de channel 2.
-     * Cuando la cuenta termina, el output pasa a 1 (mode 0). */
-    while (!(inb(0x61) & 0x20)) {
+     * Cuando la cuenta termina, el output pasa a 1 (mode 0).
+     * Timeout para evitar hang si el PIT no responde. */
+    uint32_t pit_timeout = 0xFFFFFF;
+    while (!(inb(0x61) & 0x20) && --pit_timeout > 0) {
         asm volatile("pause");
     }
 
     /* Leer cuanto decremento el LAPIC timer */
     uint32_t remaining = lapic_read(LAPIC_REG_TIMER_CCR);
     uint32_t elapsed = 0xFFFFFFFF - remaining;
+
+    /* Si el PIT no respondio, usar un fallback razonable */
+    if (pit_timeout == 0) {
+        kprintf("[LAPIC] PIT calibration timeout, using fallback\n");
+        elapsed = 100000; /* ~10M ticks/sec como estimacion conservadora */
+    }
 
     /* Detener el LAPIC timer */
     lapic_write(LAPIC_REG_TIMER_LVT, LAPIC_TIMER_MASKED);

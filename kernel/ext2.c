@@ -48,6 +48,12 @@ int ext2_init(void *ramdisk_base, uint64_t ramdisk_size) {
     fs.disk = (uint8_t *)ramdisk_base;
     fs.disk_size = ramdisk_size;
 
+    /* Verificar que el disco es suficientemente grande para el superblock */
+    if (EXT2_SUPERBLOCK_OFFSET + sizeof(struct ext2_superblock) > fs.disk_size) {
+        kprintf("[ext2] disk too small for superblock\n");
+        return -1;
+    }
+
     /* Leer superblock desde offset 1024 */
     memcpy(&fs.sb, fs.disk + EXT2_SUPERBLOCK_OFFSET, sizeof(struct ext2_superblock));
 
