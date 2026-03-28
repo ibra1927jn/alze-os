@@ -1,6 +1,7 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
+- [2026-03-28] | Quality/hardening pass: sched.c, vmm.c, kmalloc.c, string.c, main.c (12 fixes) | 100%
 
 ## Completado
 - [2026-03-28] | TLB shootdown IPI infrastructure (vector 0xFE, tlb_shootdown.c/.h, wired to vmm_flush_tlb) | Pending commit

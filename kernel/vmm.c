@@ -177,19 +177,37 @@ void vmm_unmap_page(uint64_t virt) {
     KASSERT(IS_PAGE_ALIGNED(virt));
     KASSERT(pml4_phys != 0);
 
+    uint64_t irq_flags;
+    spin_lock_irqsave(&vmm_lock, &irq_flags);
+
     uint64_t *pml4 = (uint64_t *)PHYS2VIRT(pml4_phys);
-    if (!(pml4[PML4_INDEX(virt)] & PTE_PRESENT)) return;
+    if (!(pml4[PML4_INDEX(virt)] & PTE_PRESENT)) {
+        spin_unlock_irqrestore(&vmm_lock, irq_flags);
+        return;
+    }
 
     uint64_t *pdpt = (uint64_t *)PHYS2VIRT(pte_to_phys(pml4[PML4_INDEX(virt)]));
-    if (!(pdpt[PDPT_INDEX(virt)] & PTE_PRESENT)) return;
+    if (!(pdpt[PDPT_INDEX(virt)] & PTE_PRESENT)) {
+        spin_unlock_irqrestore(&vmm_lock, irq_flags);
+        return;
+    }
 
     uint64_t *pd = (uint64_t *)PHYS2VIRT(pte_to_phys(pdpt[PDPT_INDEX(virt)]));
-    if (!(pd[PD_INDEX(virt)] & PTE_PRESENT)) return;
-    if (pd[PD_INDEX(virt)] & PTE_HUGE) return;  /* Can't unmap part of 2MB */
+    if (!(pd[PD_INDEX(virt)] & PTE_PRESENT)) {
+        spin_unlock_irqrestore(&vmm_lock, irq_flags);
+        return;
+    }
+    if (pd[PD_INDEX(virt)] & PTE_HUGE) {
+        spin_unlock_irqrestore(&vmm_lock, irq_flags);
+        return;  /* No se puede desmapear parte de una pagina 2MB */
+    }
 
     uint64_t *pt = (uint64_t *)PHYS2VIRT(pte_to_phys(pd[PD_INDEX(virt)]));
 
     pt[PT_INDEX(virt)] = 0;
+
+    spin_unlock_irqrestore(&vmm_lock, irq_flags);
+
     vmm_flush_tlb(virt);
 }
 
@@ -198,29 +216,40 @@ void vmm_unmap_page(uint64_t virt) {
 uint64_t vmm_virt_to_phys(uint64_t virt) {
     if (pml4_phys == 0) return 0;
 
+    uint64_t irq_flags;
+    spin_lock_irqsave(&vmm_lock, &irq_flags);
+
+    uint64_t result = 0;
+
     uint64_t *pml4 = (uint64_t *)PHYS2VIRT(pml4_phys);
-    if (!(pml4[PML4_INDEX(virt)] & PTE_PRESENT)) return 0;
+    if (!(pml4[PML4_INDEX(virt)] & PTE_PRESENT)) goto out;
 
     uint64_t *pdpt = (uint64_t *)PHYS2VIRT(pte_to_phys(pml4[PML4_INDEX(virt)]));
-    if (!(pdpt[PDPT_INDEX(virt)] & PTE_PRESENT)) return 0;
+    if (!(pdpt[PDPT_INDEX(virt)] & PTE_PRESENT)) goto out;
 
-    /* 1GB huge page check (unlikely but possible) */
+    /* Pagina enorme 1GB (improbable pero posible) */
     if (pdpt[PDPT_INDEX(virt)] & PTE_HUGE) {
-        return (pdpt[PDPT_INDEX(virt)] & PTE_ADDR_MASK) | (virt & 0x3FFFFFFF);
+        result = (pdpt[PDPT_INDEX(virt)] & PTE_ADDR_MASK) | (virt & 0x3FFFFFFF);
+        goto out;
     }
 
     uint64_t *pd = (uint64_t *)PHYS2VIRT(pte_to_phys(pdpt[PDPT_INDEX(virt)]));
-    if (!(pd[PD_INDEX(virt)] & PTE_PRESENT)) return 0;
+    if (!(pd[PD_INDEX(virt)] & PTE_PRESENT)) goto out;
 
-    /* 2MB huge page */
+    /* Pagina enorme 2MB */
     if (pd[PD_INDEX(virt)] & PTE_HUGE) {
-        return (pd[PD_INDEX(virt)] & PTE_ADDR_MASK) | (virt & 0x1FFFFF);
+        result = (pd[PD_INDEX(virt)] & PTE_ADDR_MASK) | (virt & 0x1FFFFF);
+        goto out;
     }
 
     uint64_t *pt = (uint64_t *)PHYS2VIRT(pte_to_phys(pd[PD_INDEX(virt)]));
-    if (!(pt[PT_INDEX(virt)] & PTE_PRESENT)) return 0;
+    if (!(pt[PT_INDEX(virt)] & PTE_PRESENT)) goto out;
 
-    return (pt[PT_INDEX(virt)] & PTE_ADDR_MASK) | (virt & 0xFFF);
+    result = (pt[PT_INDEX(virt)] & PTE_ADDR_MASK) | (virt & 0xFFF);
+
+out:
+    spin_unlock_irqrestore(&vmm_lock, irq_flags);
+    return result;
 }
 
 /* ── Bulk: Map a range of 4KB pages ───────────────────────────── */
@@ -234,15 +263,18 @@ void vmm_map_range(uint64_t virt, uint64_t phys, uint64_t size, uint64_t flags) 
 /* ── Bulk: Map a range using 2MB huge pages ───────────────────── */
 
 void vmm_map_range_huge(uint64_t virt, uint64_t phys, uint64_t size, uint64_t flags) {
-    KASSERT((virt & 0x1FFFFF) == 0);  /* Must be 2MB-aligned */
+    KASSERT((virt & 0x1FFFFF) == 0);  /* Debe ser alineado a 2MB */
     KASSERT((phys & 0x1FFFFF) == 0);
     KASSERT((size & 0x1FFFFF) == 0);
+
+    uint64_t irq_flags;
+    spin_lock_irqsave(&vmm_lock, &irq_flags);
 
     for (uint64_t off = 0; off < size; off += MB(2)) {
         uint64_t v = virt + off;
         uint64_t p = phys + off;
 
-        /* Walk PML4 → PDPT → PD, creating tables as needed */
+        /* Walk PML4 -> PDPT -> PD, creando tablas si es necesario */
         uint64_t *pml4e = get_or_create_entry(pml4_phys, PML4_INDEX(v), true);
         KASSERT(pml4e != NULL);
 
@@ -253,9 +285,11 @@ void vmm_map_range_huge(uint64_t virt, uint64_t phys, uint64_t size, uint64_t fl
         uint64_t pd_phys = pte_to_phys(*pdpte);
         uint64_t *pd = (uint64_t *)PHYS2VIRT(pd_phys);
 
-        /* Write 2MB huge page entry directly in PD */
+        /* Escribir entrada de pagina enorme 2MB directamente en PD */
         pd[PD_INDEX(v)] = p | flags | PTE_HUGE;
     }
+
+    spin_unlock_irqrestore(&vmm_lock, irq_flags);
 }
 
 /* ── vmm_init: Build our tables and switch CR3 ────────────────── */

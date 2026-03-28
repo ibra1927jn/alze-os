@@ -216,6 +216,8 @@ int task_create(const char *name, task_entry_fn entry) {
 
     uint64_t stack_phys = pmm_alloc_pages_zero(2);
     if (stack_phys == 0) {
+        /* Devolver el TCB al bitmap — evitar leak de slot */
+        free_tcb(t);
         spin_unlock_irqrestore(&sched_lock, irq_flags);
         return -ENOMEM;
     }
@@ -319,13 +321,24 @@ void task_sleep(uint64_t ms) {
 /* ── task_join ───────────────────────────────────────────────── */
 
 int task_join(uint32_t tid) {
+    uint64_t irq_flags;
+    spin_lock_irqsave(&sched_lock, &irq_flags);
+
     struct task *target = find_task(tid);
-    if (!target) return -ESRCH;
+    if (!target) {
+        spin_unlock_irqrestore(&sched_lock, irq_flags);
+        return -ESRCH;
+    }
 
-    /* Already finished? Return immediately */
-    if (target->finished) return 0;
+    /* Ya termino? Retornar inmediatamente */
+    if (target->finished) {
+        spin_unlock_irqrestore(&sched_lock, irq_flags);
+        return 0;
+    }
 
-    /* Allocate a wait queue on-demand for joiners */
+    /* Asignar wait queue on-demand para joiners.
+     * La WQ vive en nuestro stack — seguro porque este frame
+     * persiste mientras estemos bloqueados en wq_wait. */
     struct wait_queue join_wq;
     wq_init(&join_wq);
 
@@ -333,7 +346,9 @@ int task_join(uint32_t tid) {
         target->join_wq = &join_wq;
     }
 
-    /* Sleep until target calls task_exit → wq_wake_all */
+    spin_unlock_irqrestore(&sched_lock, irq_flags);
+
+    /* Dormir hasta que target llame task_exit -> wq_wake_all */
     while (!target->finished) {
         wq_wait(target->join_wq);
     }
@@ -517,6 +532,7 @@ void sched_init(void) {
     prio_bitmap = 0;
 
     struct task *init_task = alloc_tcb();
+    KASSERT(init_task != 0);  /* Sin TCB para init = sistema inutilizable */
     init_task->tid = next_tid++;
     init_task->state = TASK_RUNNING;
     init_task->stack_phys = 0;
@@ -532,23 +548,28 @@ void sched_init(void) {
     set_current(init_task);
 
     int idle_tid = task_create("idle", idle_fn);
-    (void)idle_tid;
+    KASSERT(idle_tid >= 0);
 
     uint64_t irq_flags;
     spin_lock_irqsave(&sched_lock, &irq_flags);
 
+    /* Buscar idle task por TID, no por slot fijo en task_pool.
+     * El slot puede variar si alloc_tcb cambia de orden. */
     struct list_node *pos;
+    int idle_found = 0;
     list_for_each(pos, &prio_queues[TASK_PRIO_NORMAL]) {
         struct task *t = container_of(pos, struct task, run_node);
-        if (t == &task_pool[1]) {
+        if (t->tid == (uint32_t)idle_tid) {
             set_idle(t);
             list_remove_node(pos);
             if (list_empty(&prio_queues[TASK_PRIO_NORMAL]))
                 prio_bitmap &= ~(1ULL << TASK_PRIO_NORMAL);
             t->state = TASK_READY;
+            idle_found = 1;
             break;
         }
     }
+    KASSERT(idle_found);
 
     spin_unlock_irqrestore(&sched_lock, irq_flags);
 

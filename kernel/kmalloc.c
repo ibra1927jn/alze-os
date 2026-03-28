@@ -268,53 +268,40 @@ void kfree(void *ptr) {
     /* ── Double-free detection (OpenBSD hardened malloc) ────────── */
     struct slab_header *slab = slab_from_ptr(ptr);
     int cls_idx = size_to_class(slab->obj_size);
+    KASSERT(cls_idx >= 0);  /* Validar que obj_size es una clase conocida */
     KASSERT(slab->used > 0);
 
-    /* Check poison: if first 8 bytes after header match poison,
-     * this slot was already freed → double-free! */
+    uint64_t irq_flags;
+    spin_lock_irqsave(&classes[cls_idx].lock, &irq_flags);
+
+    /* Check poison bajo lock: si los bytes post-header ya tienen
+     * el patron poison, esta memoria ya fue liberada → double-free! */
     if (slab->obj_size > 8) {
         uint8_t *check = (uint8_t *)ptr + 8;
         if (check[0] == POISON_BYTE && check[1] == POISON_BYTE &&
             check[2] == POISON_BYTE && check[3] == POISON_BYTE) {
+            spin_unlock_irqrestore(&classes[cls_idx].lock, irq_flags);
             kprintf("[PANIC] DOUBLE FREE detected at %p (class %u)\n",
                     ptr, slab->obj_size);
             KASSERT(0);  /* Halt */
         }
     }
 
-    uint64_t irq_flags;
-    spin_lock_irqsave(&classes[cls_idx].lock, &irq_flags);
-
-    /* Poison the slot (except first 8 bytes — used for free list link) */
+    /* Envenenar el slot (excepto primeros 8 bytes — usados para free list) */
     if (slab->obj_size > 8) {
         memset((uint8_t *)ptr + 8, POISON_BYTE, slab->obj_size - 8);
     }
 
-    /* Quarantine: delay reuse by pushing through ring buffer */
+    /* Quarantine: retrasar reutilizacion via ring buffer.
+     * Extraer el entry viejo del ring ANTES de insertar el nuevo.
+     * Si el entry viejo pertenece a otra clase, adquirir su lock. */
+    void *evicted = NULL;
     {
         uint64_t q_flags;
         spin_lock_irqsave(&quarantine_lock, &q_flags);
 
-        /* If ring is full, flush oldest entry back to real free list */
         if (quarantine.count >= QUARANTINE_SIZE) {
-            void *old = quarantine.entries[quarantine.head];
-            if (old) {
-                struct slab_header *old_slab = slab_from_ptr(old);
-                *(void **)old = old_slab->free;
-                old_slab->free = old;
-                old_slab->used--;
-                /* Check for slab reclamation */
-                int old_cls = size_to_class(old_slab->obj_size);
-                if (old_slab->used == 0 && old_cls >= 0) {
-                    classes[old_cls].total_frees++;
-                    struct slab_header **pp = &classes[old_cls].slabs;
-                    while (*pp && *pp != old_slab) pp = &(*pp)->next;
-                    if (*pp == old_slab) *pp = old_slab->next;
-                    memset(old_slab, POISON_BYTE, PAGE_SIZE);
-                    uint64_t phys = virt_to_phys((void *)old_slab);
-                    pmm_free_pages(phys, 0);
-                }
-            }
+            evicted = quarantine.entries[quarantine.head];
         }
 
         quarantine.entries[quarantine.head] = ptr;
@@ -322,6 +309,51 @@ void kfree(void *ptr) {
         if (quarantine.count < QUARANTINE_SIZE) quarantine.count++;
 
         spin_unlock_irqrestore(&quarantine_lock, q_flags);
+    }
+
+    /* Devolver el entry evicto a su free list, con el lock correcto */
+    if (evicted) {
+        struct slab_header *old_slab = slab_from_ptr(evicted);
+        int old_cls = size_to_class(old_slab->obj_size);
+
+        if (old_cls >= 0 && old_cls != cls_idx) {
+            /* Clase diferente: soltar lock actual, tomar el de la otra clase.
+             * Orden fijo (menor primero) para evitar deadlock. */
+            spin_unlock_irqrestore(&classes[cls_idx].lock, irq_flags);
+
+            uint64_t old_flags;
+            spin_lock_irqsave(&classes[old_cls].lock, &old_flags);
+            *(void **)evicted = old_slab->free;
+            old_slab->free = evicted;
+            old_slab->used--;
+            if (old_slab->used == 0) {
+                struct slab_header **pp = &classes[old_cls].slabs;
+                while (*pp && *pp != old_slab) pp = &(*pp)->next;
+                if (*pp == old_slab) *pp = old_slab->next;
+                memset(old_slab, POISON_BYTE, PAGE_SIZE);
+                uint64_t phys = virt_to_phys((void *)old_slab);
+                pmm_free_pages(phys, 0);
+            }
+            classes[old_cls].total_frees++;
+            spin_unlock_irqrestore(&classes[old_cls].lock, old_flags);
+
+            /* Re-adquirir lock de nuestra clase para el total_frees final */
+            spin_lock_irqsave(&classes[cls_idx].lock, &irq_flags);
+        } else if (old_cls == cls_idx) {
+            /* Misma clase: ya tenemos el lock */
+            *(void **)evicted = old_slab->free;
+            old_slab->free = evicted;
+            old_slab->used--;
+            if (old_slab->used == 0) {
+                struct slab_header **pp = &classes[cls_idx].slabs;
+                while (*pp && *pp != old_slab) pp = &(*pp)->next;
+                if (*pp == old_slab) *pp = old_slab->next;
+                memset(old_slab, POISON_BYTE, PAGE_SIZE);
+                uint64_t phys = virt_to_phys((void *)old_slab);
+                pmm_free_pages(phys, 0);
+            }
+        }
+        /* old_cls < 0 = corrupto, ignorar silenciosamente */
     }
 
     classes[cls_idx].total_frees++;

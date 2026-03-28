@@ -215,6 +215,8 @@ void _start(void) {
      * ───────────────────────────────────────────────────────────── */
     if (fb_request.response && fb_request.response->framebuffer_count > 0) {
         struct limine_framebuffer *fb = fb_request.response->framebuffers[0];
+        KASSERT(fb != NULL);
+        KASSERT(fb->address != NULL);
         console_init(fb->address, fb->width, fb->height, fb->pitch, fb->bpp);
         LOG_OK("Framebuffer console: %lux%lu, %u bpp",
                fb->width, fb->height, fb->bpp);
