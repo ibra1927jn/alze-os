@@ -13,6 +13,9 @@
 - [2026-03-28] | PCI enumeration (mechanism 1, full bus scan, find by class/sub/progif) | Pending commit
 - [2026-03-28] | xHCI USB 3.x minimal detection (PCI probe, BAR0 MMIO, reset, port enumeration) | Pending commit
 - [2026-03-28] | LAPIC driver (init, EOI, IPI, timer calibration via PIT ch2, MMIO r/w, refactored TLB shootdown) | Pending commit
+- [2026-03-28] | 6 HIGH bugs fixed (kmalloc overflow, TLB timeout, LAPIC timeout, mutex PI, PMM ref lock, ext2 bounds) | Commit 857c7ce
+- [2026-03-28] | 3 MEDIUM bugs fixed (xHCI timeouts, kmalloc cast validation, watchdog enforcement) | Commit 592ed75
+- [2026-03-28] | 12 quality fixes (TCB leak, task_join TOCTOU, VMM locks x3, quarantine race, poison lock, memmove SIMD, FB assert) | Commit fec0ee6
 
 ## Pendiente
 - SMP AP startup (update active_cpus for TLB shootdown) | Prioridad: media
