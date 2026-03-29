@@ -10,6 +10,44 @@
 #include "log.h"
 #include <stdint.h>
 
+/* ── CPUID leaf 1: family/model extraction bit fields ────────── */
+
+#define CPUID_FAMILY_SHIFT       8
+#define CPUID_FAMILY_MASK        0xF
+#define CPUID_EXT_FAMILY_SHIFT   20
+#define CPUID_EXT_FAMILY_MASK    0xFF
+#define CPUID_MODEL_SHIFT        4
+#define CPUID_MODEL_MASK         0xF
+#define CPUID_EXT_MODEL_SHIFT    16
+#define CPUID_EXT_MODEL_MASK     0xF
+#define CPUID_STEPPING_MASK      0xF
+
+/* CPUID leaf 1 EDX feature bits */
+#define CPUID_EDX_TSC            (1 <<  4)
+#define CPUID_EDX_MSR            (1 <<  5)
+#define CPUID_EDX_MTRR           (1 << 12)
+#define CPUID_EDX_PGE            (1 << 13)
+#define CPUID_EDX_SSE            (1 << 25)
+#define CPUID_EDX_SSE2           (1 << 26)
+
+/* CPUID leaf 1 ECX feature bits */
+#define CPUID_ECX_SSE3           (1 <<  0)
+#define CPUID_ECX_SSSE3          (1 <<  9)
+#define CPUID_ECX_SSE41          (1 << 19)
+#define CPUID_ECX_SSE42          (1 << 20)
+#define CPUID_ECX_AVX            (1 << 28)
+#define CPUID_ECX_RDRAND         (1 << 30)
+
+/* CPUID extended leaf 0x80000001 EDX feature bits */
+#define CPUID_EXT_LEAF           0x80000000
+#define CPUID_EXT_FEATURES_LEAF  0x80000001
+#define CPUID_EXT_EDX_NX         (1 << 20)
+#define CPUID_EXT_EDX_LM         (1 << 29)
+
+/* CPUID brand string leaves */
+#define CPUID_BRAND_LEAF_START   0x80000002
+#define CPUID_BRAND_LEAF_END     0x80000004
+
 /* ── CPUID wrapper ───────────────────────────────────────────── */
 
 static inline void cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx,
@@ -40,48 +78,50 @@ void cpuid_detect(void) {
     if (max_leaf >= 1) {
         cpuid(1, &eax, &ebx, &ecx, &edx);
 
-        uint32_t family = ((eax >> 8) & 0xF) + ((eax >> 20) & 0xFF);
-        uint32_t model  = ((eax >> 4) & 0xF) | (((eax >> 16) & 0xF) << 4);
-        uint32_t stepping = eax & 0xF;
+        uint32_t family = ((eax >> CPUID_FAMILY_SHIFT) & CPUID_FAMILY_MASK)
+                        + ((eax >> CPUID_EXT_FAMILY_SHIFT) & CPUID_EXT_FAMILY_MASK);
+        uint32_t model  = ((eax >> CPUID_MODEL_SHIFT) & CPUID_MODEL_MASK)
+                        | (((eax >> CPUID_EXT_MODEL_SHIFT) & CPUID_EXT_MODEL_MASK) << 4);
+        uint32_t stepping = eax & CPUID_STEPPING_MASK;
 
         LOG_INFO("  Family %u, Model %u, Stepping %u", family, model, stepping);
 
         /* Report key features */
         kprintf(ANSI_CYAN "[INFO]" ANSI_RESET "  Features:");
-        if (edx & (1 << 25)) kprintf(" SSE");
-        if (edx & (1 << 26)) kprintf(" SSE2");
-        if (ecx & (1 <<  0)) kprintf(" SSE3");
-        if (ecx & (1 <<  9)) kprintf(" SSSE3");
-        if (ecx & (1 << 19)) kprintf(" SSE4.1");
-        if (ecx & (1 << 20)) kprintf(" SSE4.2");
-        if (ecx & (1 << 28)) kprintf(" AVX");
-        if (ecx & (1 << 30)) kprintf(" RDRAND");
-        if (edx & (1 <<  4)) kprintf(" TSC");
-        if (edx & (1 <<  5)) kprintf(" MSR");
-        if (edx & (1 << 12)) kprintf(" MTRR");
-        if (edx & (1 << 13)) kprintf(" PGE");
+        if (edx & CPUID_EDX_SSE)    kprintf(" SSE");
+        if (edx & CPUID_EDX_SSE2)   kprintf(" SSE2");
+        if (ecx & CPUID_ECX_SSE3)   kprintf(" SSE3");
+        if (ecx & CPUID_ECX_SSSE3)  kprintf(" SSSE3");
+        if (ecx & CPUID_ECX_SSE41)  kprintf(" SSE4.1");
+        if (ecx & CPUID_ECX_SSE42)  kprintf(" SSE4.2");
+        if (ecx & CPUID_ECX_AVX)    kprintf(" AVX");
+        if (ecx & CPUID_ECX_RDRAND) kprintf(" RDRAND");
+        if (edx & CPUID_EDX_TSC)    kprintf(" TSC");
+        if (edx & CPUID_EDX_MSR)    kprintf(" MSR");
+        if (edx & CPUID_EDX_MTRR)   kprintf(" MTRR");
+        if (edx & CPUID_EDX_PGE)    kprintf(" PGE");
         kprintf("\n");
     }
 
     /* Extended features (leaf 0x80000001) — NX bit */
-    cpuid(0x80000000, &eax, &ebx, &ecx, &edx);
-    if (eax >= 0x80000001) {
-        cpuid(0x80000001, &eax, &ebx, &ecx, &edx);
-        if (edx & (1 << 20)) {
+    cpuid(CPUID_EXT_LEAF, &eax, &ebx, &ecx, &edx);
+    if (eax >= CPUID_EXT_FEATURES_LEAF) {
+        cpuid(CPUID_EXT_FEATURES_LEAF, &eax, &ebx, &ecx, &edx);
+        if (edx & CPUID_EXT_EDX_NX) {
             LOG_OK("  NX (No-Execute) bit supported");
         }
-        if (edx & (1 << 29)) {
+        if (edx & CPUID_EXT_EDX_LM) {
             LOG_OK("  Long Mode (x86_64) supported");
         }
     }
 
     /* Brand string (leaves 0x80000002-4) */
-    if (eax >= 0x80000004) {
+    if (eax >= CPUID_BRAND_LEAF_END) {
         char brand[49];
         uint32_t *b = (uint32_t *)brand;
-        cpuid(0x80000002, &b[0], &b[1], &b[2], &b[3]);
-        cpuid(0x80000003, &b[4], &b[5], &b[6], &b[7]);
-        cpuid(0x80000004, &b[8], &b[9], &b[10], &b[11]);
+        cpuid(CPUID_BRAND_LEAF_START + 0, &b[0], &b[1], &b[2], &b[3]);
+        cpuid(CPUID_BRAND_LEAF_START + 1, &b[4], &b[5], &b[6], &b[7]);
+        cpuid(CPUID_BRAND_LEAF_START + 2, &b[8], &b[9], &b[10], &b[11]);
         brand[48] = '\0';
 
         /* Skip leading spaces */
