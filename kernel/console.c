@@ -6,6 +6,7 @@
  */
 
 #include "console.h"
+#include "font8x16.h"
 #include "string.h"
 #include <stdint.h>
 
@@ -48,8 +49,6 @@ static int  ansi_param = 0;
 
 /* ── Built-in 8x16 font (printable ASCII 32-126) ────────────── */
 /*    Each glyph = 16 bytes (one byte per row, MSB = leftmost) */
-
-#include "font8x16.h"
 
 /* ── Internal: draw a glyph at pixel position ────────────────── */
 
