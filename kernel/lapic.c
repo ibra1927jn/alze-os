@@ -159,8 +159,11 @@ static uint32_t lapic_calibrate_timer(void) {
     lapic_write(LAPIC_REG_TIMER_LVT, LAPIC_TIMER_MASKED);
 
     /* Escalar a ticks por segundo.
-     * elapsed ticks ocurrieron en ~10ms → ticks/sec = elapsed * 100 */
-    uint32_t ticks_per_sec = elapsed * 100;
+     * elapsed ticks ocurrieron en ~10ms → ticks/sec = elapsed * 100.
+     * Use 64-bit multiply to avoid overflow if elapsed > ~42M ticks. */
+    uint64_t ticks64 = (uint64_t)elapsed * 100;
+    if (ticks64 > UINT32_MAX) ticks64 = UINT32_MAX;
+    uint32_t ticks_per_sec = (uint32_t)ticks64;
 
     LOG_INFO("LAPIC timer: calibrated %u ticks in ~10ms → %u ticks/sec",
              elapsed, ticks_per_sec);
