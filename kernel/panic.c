@@ -11,6 +11,13 @@
 #include "klog.h"
 #include <stdint.h>
 
+/* RFLAGS bit positions for register dump decoding */
+#define RFLAGS_CF  (1 <<  0)   /* Carry Flag */
+#define RFLAGS_ZF  (1 <<  6)   /* Zero Flag */
+#define RFLAGS_SF  (1 <<  7)   /* Sign Flag */
+#define RFLAGS_IF  (1 <<  9)   /* Interrupt Enable Flag */
+#define RFLAGS_OF  (1 << 11)   /* Overflow Flag */
+
 __attribute__((noreturn))
 void kernel_panic(const char *msg, const char *file, int line) {
     /* Disable interrupts immediately */
@@ -56,11 +63,11 @@ void kernel_panic(const char *msg, const char *file, int line) {
 
     /* Decode RFLAGS */
     kprintf("  [");
-    if (rflags & (1 << 0))  kprintf(" CF");
-    if (rflags & (1 << 6))  kprintf(" ZF");
-    if (rflags & (1 << 7))  kprintf(" SF");
-    if (rflags & (1 << 9))  kprintf(" IF");
-    if (rflags & (1 << 11)) kprintf(" OF");
+    if (rflags & RFLAGS_CF) kprintf(" CF");
+    if (rflags & RFLAGS_ZF) kprintf(" ZF");
+    if (rflags & RFLAGS_SF) kprintf(" SF");
+    if (rflags & RFLAGS_IF) kprintf(" IF");
+    if (rflags & RFLAGS_OF) kprintf(" OF");
     kprintf(" ]\n");
 
     /* Stack dump (top 8 qwords) */

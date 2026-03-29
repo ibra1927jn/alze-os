@@ -85,7 +85,7 @@ static inline void spin_lock_irqsave(spinlock_t *lock, uint64_t *flags) {
  */
 static inline void spin_unlock_irqrestore(spinlock_t *lock, uint64_t flags) {
     spin_unlock(lock);
-    if (flags & (1UL << 9)) {   /* Bit 9 = IF (Interrupt Flag) */
+    if (flags & (1UL << 9)) {   /* RFLAGS bit 9 = IF (Interrupt Flag) */
         asm volatile("sti");
     }
 }
