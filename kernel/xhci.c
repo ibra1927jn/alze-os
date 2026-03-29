@@ -18,7 +18,6 @@
 #include "kprintf.h"
 #include "log.h"
 #include "string.h"
-#include "io.h"
 
 /* ── Helpers para leer registros MMIO del xHCI ──────────────────── */
 
