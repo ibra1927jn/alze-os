@@ -202,7 +202,7 @@ int64_t ext2_read_file(uint32_t ino, void *buf, uint64_t offset, uint64_t count)
 
     /* Ajustar offset y count a los limites del archivo */
     if (offset >= file_size) return 0;
-    if (offset + count > file_size) {
+    if (count > file_size - offset) {
         count = file_size - offset;
     }
 

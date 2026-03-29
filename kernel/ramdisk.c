@@ -115,7 +115,7 @@ int64_t ramdisk_read(uint64_t offset, void *buf, uint64_t count) {
     if (!rd.loaded) return -EIO;
     if (!buf) return -EINVAL;
     if (offset >= rd.size) return 0;
-    if (offset + count > rd.size) {
+    if (count > rd.size - offset) {
         count = rd.size - offset;
     }
     memcpy(buf, (uint8_t *)rd.base + offset, count);
