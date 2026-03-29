@@ -1,11 +1,11 @@
 /*
  * Anykernel OS — xHCI USB 3.x Host Controller (Minimal Detection)
  *
- * Driver minimo: detecta controlador xHCI via PCI, mapea BAR0,
- * resetea el controlador, y enumera puertos para detectar
- * dispositivos USB conectados.
+ * Minimal driver: detects xHCI controller via PCI, maps BAR0,
+ * resets the controller, and enumerates ports to detect
+ * connected USB devices.
  *
- * NO implementa HID protocol completo — solo deteccion de presencia.
+ * Does NOT implement full HID protocol — detection only.
  *
  * xHCI spec: https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/extensible-host-controler-interface-usb-xhci.pdf
  */
@@ -19,9 +19,9 @@
 /* ── xHCI Capability Registers (offsets from BAR0) ──────────────── */
 
 struct xhci_cap_regs {
-    uint8_t  caplength;       /* Offset 0x00: longitud de capability regs */
+    uint8_t  caplength;       /* Offset 0x00: capability regs length */
     uint8_t  reserved;
-    uint16_t hci_version;     /* Offset 0x02: version del interface (BCD) */
+    uint16_t hci_version;     /* Offset 0x02: interface version (BCD) */
     uint32_t hcsparams1;      /* Offset 0x04: structural parameters 1 */
     uint32_t hcsparams2;      /* Offset 0x08: structural parameters 2 */
     uint32_t hcsparams3;      /* Offset 0x0C: structural parameters 3 */
@@ -31,7 +31,7 @@ struct xhci_cap_regs {
     uint32_t hccparams2;      /* Offset 0x1C: capability parameters 2 */
 } __attribute__((packed));
 
-/* Extraer campos de HCSPARAMS1 */
+/* Extract fields from HCSPARAMS1 */
 #define XHCI_MAX_SLOTS(p1)  ((p1) & 0xFF)
 #define XHCI_MAX_INTRS(p1)  (((p1) >> 8) & 0x7FF)
 #define XHCI_MAX_PORTS(p1)  (((p1) >> 24) & 0xFF)

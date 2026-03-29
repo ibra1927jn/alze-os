@@ -189,7 +189,7 @@ void *kmalloc(uint64_t size) {
             order++;
         }
 
-        /* Verificar que el orden no excede el maximo permitido */
+        /* Verify that order does not exceed the maximum allowed */
         if (order > PMM_MAX_ORDER) {
             spin_unlock_irqrestore(&large_lock, irq_flags);
             return NULL;
@@ -251,11 +251,11 @@ void kfree(void *ptr) {
         spin_lock_irqsave(&large_lock, &irq_flags);
         void *base = (void *)(addr - 8);
         uint32_t order = (uint32_t)(*(uint64_t *)base);
-        /* Validar que el order no fue corrompido antes de usarlo */
+        /* Validate that order was not corrupted before using it */
         if (order > PMM_MAX_ORDER) {
             kprintf("[kmalloc] corrupted large header: order=%u\n", order);
             spin_unlock_irqrestore(&large_lock, irq_flags);
-            return;  /* No liberar con order invalido */
+            return;  /* Do not free with invalid order */
         }
         memset(base, POISON_BYTE, (1UL << order) * PAGE_SIZE);
         uint64_t phys = virt_to_phys(base);
@@ -268,14 +268,14 @@ void kfree(void *ptr) {
     /* ── Double-free detection (OpenBSD hardened malloc) ────────── */
     struct slab_header *slab = slab_from_ptr(ptr);
     int cls_idx = size_to_class(slab->obj_size);
-    KASSERT(cls_idx >= 0);  /* Validar que obj_size es una clase conocida */
+    KASSERT(cls_idx >= 0);  /* Validate that obj_size is a known class */
     KASSERT(slab->used > 0);
 
     uint64_t irq_flags;
     spin_lock_irqsave(&classes[cls_idx].lock, &irq_flags);
 
-    /* Check poison bajo lock: si los bytes post-header ya tienen
-     * el patron poison, esta memoria ya fue liberada → double-free! */
+    /* Check poison under lock: if post-header bytes already have
+     * the poison pattern, this memory was already freed → double-free! */
     if (slab->obj_size > 8) {
         uint8_t *check = (uint8_t *)ptr + 8;
         if (check[0] == POISON_BYTE && check[1] == POISON_BYTE &&
@@ -287,14 +287,14 @@ void kfree(void *ptr) {
         }
     }
 
-    /* Envenenar el slot (excepto primeros 8 bytes — usados para free list) */
+    /* Poison the slot (except first 8 bytes — used for free list) */
     if (slab->obj_size > 8) {
         memset((uint8_t *)ptr + 8, POISON_BYTE, slab->obj_size - 8);
     }
 
-    /* Quarantine: retrasar reutilizacion via ring buffer.
-     * Extraer el entry viejo del ring ANTES de insertar el nuevo.
-     * Si el entry viejo pertenece a otra clase, adquirir su lock. */
+    /* Quarantine: delay reuse via ring buffer.
+     * Extract the old entry from the ring BEFORE inserting the new one.
+     * If the old entry belongs to another class, acquire its lock. */
     void *evicted = NULL;
     {
         uint64_t q_flags;
@@ -311,14 +311,14 @@ void kfree(void *ptr) {
         spin_unlock_irqrestore(&quarantine_lock, q_flags);
     }
 
-    /* Devolver el entry evicto a su free list, con el lock correcto */
+    /* Return the evicted entry to its free list, with the correct lock */
     if (evicted) {
         struct slab_header *old_slab = slab_from_ptr(evicted);
         int old_cls = size_to_class(old_slab->obj_size);
 
         if (old_cls >= 0 && old_cls != cls_idx) {
-            /* Clase diferente: soltar lock actual, tomar el de la otra clase.
-             * Orden fijo (menor primero) para evitar deadlock. */
+            /* Different class: release current lock, take the other class lock.
+             * Fixed order (lower first) to avoid deadlock. */
             spin_unlock_irqrestore(&classes[cls_idx].lock, irq_flags);
 
             uint64_t old_flags;
@@ -337,10 +337,10 @@ void kfree(void *ptr) {
             classes[old_cls].total_frees++;
             spin_unlock_irqrestore(&classes[old_cls].lock, old_flags);
 
-            /* Re-adquirir lock de nuestra clase para el total_frees final */
+            /* Re-acquire our class lock for the final total_frees update */
             spin_lock_irqsave(&classes[cls_idx].lock, &irq_flags);
         } else if (old_cls == cls_idx) {
-            /* Misma clase: ya tenemos el lock */
+            /* Same class: we already hold the lock */
             *(void **)evicted = old_slab->free;
             old_slab->free = evicted;
             old_slab->used--;
@@ -353,7 +353,7 @@ void kfree(void *ptr) {
                 pmm_free_pages(phys, 0);
             }
         }
-        /* old_cls < 0 = corrupto, ignorar silenciosamente */
+        /* old_cls < 0 = corrupted, silently ignore */
     }
 
     classes[cls_idx].total_frees++;
@@ -381,7 +381,7 @@ uint64_t kmalloc_usable_size(void *ptr) {
     if (((addr - 8) & (PAGE_SIZE - 1)) == 0) {
         void *base = (void *)(addr - 8);
         uint32_t order = (uint32_t)(*(uint64_t *)base);
-        /* Validar order corrompido antes de calcular tamano */
+        /* Validate order is not corrupted before computing size */
         if (order > PMM_MAX_ORDER) {
             kprintf("[kmalloc] corrupted large header in usable_size: order=%u\n", order);
             return 0;
