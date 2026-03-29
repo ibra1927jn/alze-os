@@ -1,7 +1,13 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
-- [2026-03-29] | Heartbeat maintenance: 10 fixes + 5 cleanup items across pmm, msgqueue, ramdisk, ext2, vfs, pic, idt, console, kprintf, repo | 100%
+- [2026-03-29] | Heartbeat maintenance: 13 fixes + 8 cleanup items across pmm, msgqueue, ramdisk, ext2, vfs, pic, idt, console, kprintf, lapic, gdt, repo | 100%
+
+## Sesion 2026-03-29 (heartbeat pass 6)
+- fix(lapic): use 64-bit arithmetic to prevent overflow in timer calibration | 93283ff
+- refactor(ext2): replace magic numbers 1024/128 with EXT2_BASE_BLOCK_SIZE/EXT2_REV0_INODE_SIZE | 2991263
+- refactor(gdt): define named constants for temporary TSS stack sizes | 6985b63
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Sesion 2026-03-29 (heartbeat pass 5)
 - refactor(console): move mid-file #include "font8x16.h" to top include block | fe25742
