@@ -54,4 +54,4 @@ Testing: selftest, tests, runtime_tests
 
 ## Current State
 
-Kernel boots, runs self-tests, has working memory management (PMM+VMM+slab), preemptive scheduler, basic filesystem (ext2 read-only over ramdisk), PCI enumeration, and xHCI detection. Single-core with SMP infrastructure (TLB shootdown, LAPIC IPI) ready for AP startup. 8 commits on main.
+Kernel boots, runs self-tests, has working memory management (PMM+VMM+slab), preemptive scheduler, basic filesystem (ext2 read-only over ramdisk), PCI enumeration, and xHCI detection. Single-core with SMP infrastructure (TLB shootdown, LAPIC IPI) ready for AP startup. 9 commits on master.
