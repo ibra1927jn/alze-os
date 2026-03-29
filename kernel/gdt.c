@@ -68,6 +68,16 @@ static struct tss tss_instance;
  *   Bits 0-3 : limit_high
  */
 
+/* GDT access byte values (see bit layout in comment above) */
+#define GDT_ACCESS_KCODE  0x9A  /* Present, DPL=0, Code, Readable        */
+#define GDT_ACCESS_KDATA  0x92  /* Present, DPL=0, Data, Writable        */
+#define GDT_ACCESS_UCODE  0xFA  /* Present, DPL=3, Code, Readable        */
+#define GDT_ACCESS_UDATA  0xF2  /* Present, DPL=3, Data, Writable        */
+#define GDT_ACCESS_TSS64  0x89  /* Present, DPL=0, type=0x9 (64-bit TSS) */
+
+/* GDT flags (upper nibble of granularity byte) */
+#define GDT_FLAG_LONG_MODE  0x20  /* L=1: 64-bit code segment */
+
 static struct gdt_entry gdt[7];
 static struct gdt_pointer gdtr;
 
@@ -90,7 +100,7 @@ static void gdt_set_tss(int idx, struct tss *tss_ptr) {
     gdt[idx].limit_low   = limit & 0xFFFF;
     gdt[idx].base_low    = base & 0xFFFF;
     gdt[idx].base_mid    = (base >> 16) & 0xFF;
-    gdt[idx].access      = 0x89;  /* Present, DPL=0, type=0x9 (64-bit TSS Available) */
+    gdt[idx].access      = GDT_ACCESS_TSS64;
     gdt[idx].granularity  = ((limit >> 16) & 0x0F);  /* No flags for TSS */
     gdt[idx].base_high   = (base >> 24) & 0xFF;
 
@@ -126,17 +136,17 @@ void gdt_init(void) {
     gdt[0].granularity = 0;
     gdt[0].base_high   = 0;
 
-    /* [1] Kernel Code 64: Present, DPL=0, Code, Readable, L=1 */
-    gdt_set_entry(1, 0x9A, 0x20);
+    /* [1] Kernel Code 64 */
+    gdt_set_entry(1, GDT_ACCESS_KCODE, GDT_FLAG_LONG_MODE);
 
-    /* [2] Kernel Data 64: Present, DPL=0, Data, Writable */
-    gdt_set_entry(2, 0x92, 0x00);
+    /* [2] Kernel Data 64 */
+    gdt_set_entry(2, GDT_ACCESS_KDATA, 0x00);
 
-    /* [3] User Code 64: Present, DPL=3, Code, Readable, L=1 */
-    gdt_set_entry(3, 0xFA, 0x20);
+    /* [3] User Code 64 */
+    gdt_set_entry(3, GDT_ACCESS_UCODE, GDT_FLAG_LONG_MODE);
 
-    /* [4] User Data 64: Present, DPL=3, Data, Writable */
-    gdt_set_entry(4, 0xF2, 0x00);
+    /* [4] User Data 64 */
+    gdt_set_entry(4, GDT_ACCESS_UDATA, 0x00);
 
     /* [5-6] TSS descriptor (16 bytes) */
     gdt_set_tss(5, &tss_instance);
