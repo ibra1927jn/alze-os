@@ -1,9 +1,9 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
-- [2026-03-29] | Heartbeat maintenance: 7 fixes across pmm, msgqueue, ramdisk, ext2, vfs, test harness | 100%
+- [2026-03-29] | Heartbeat maintenance: 7 fixes + 3 cleanup items across pmm, msgqueue, ramdisk, ext2, vfs, pic, idt, repo | 100%
 
-## Sesion 2026-03-29 (heartbeat)
+## Sesion 2026-03-29 (heartbeat pass 2)
 - fix(pmm): move irq_flags inside #ifndef guard to fix -Wunused-variable | 2670721
 - fix(test): guard PMM_USERSPACE_TEST define to fix -Wmacro-redefined | 2670721
 - fix(ramdisk): prevent integer overflow in bounds check (offset+count wrap) | 2580b15
@@ -12,6 +12,12 @@
 - fix(ramdisk): add NULL buf check in ramdisk_vfs_read | 42b11f7
 - fix(vfs): add NULL name check in vfs_register_device | 42b11f7
 - Tests: 29/29 passing (was 29/29), 0 warnings (was 2)
+
+## Sesion 2026-03-29 (heartbeat pass 2)
+- security(repo): add .gitignore for build artifacts, editor files, and secrets | 113fe45
+- refactor(pic): remove unused mask1/mask2 variables in pic_init (dead code) | 9d21178
+- refactor(idt): move mid-file #includes to standard include block at top | 7f7bd8a
+- Tests: 29/29 passing (unchanged)
 
 ## Completado (anterior)
 - [2026-03-28] | Quality/hardening pass: sched.c, vmm.c, kmalloc.c, string.c, main.c (12 fixes) | 100%
