@@ -41,11 +41,6 @@ static inline void xhci_op_write32(uint32_t offset, uint32_t val) {
 /* Operational register offsets */
 #define XHCI_OP_USBCMD   0x00
 #define XHCI_OP_USBSTS   0x04
-#define XHCI_OP_PAGESIZE  0x08
-#define XHCI_OP_DNCTRL   0x14
-#define XHCI_OP_CRCR     0x18
-#define XHCI_OP_DCBAAP   0x30
-#define XHCI_OP_CONFIG   0x38
 
 /* Port Status register: each port occupies 0x10 bytes starting at offset 0x400 */
 #define XHCI_PORT_REG_BASE   0x400

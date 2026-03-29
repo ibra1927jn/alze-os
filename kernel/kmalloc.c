@@ -35,11 +35,9 @@
 
 #define SLAB_NUM_CLASSES  8
 #define SLAB_MIN_SIZE     16
-#define SLAB_MAX_SIZE     2048
 
-/* Poison pattern: written to freed memory to detect use-after-free.
- * If you see 0xDEADBEEF in a register dump, you freed too early. */
-#define POISON_PATTERN    0xDEADBEEFDEADBEEFULL
+/* Poison byte: written to freed memory to detect use-after-free.
+ * If you see 0xDEDEDEDE in a register dump, you freed too early. */
 #define POISON_BYTE       0xDE
 
 /* ── Slab header (at the start of each slab page) ─────────────── */
