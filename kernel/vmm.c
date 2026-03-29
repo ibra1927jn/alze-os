@@ -69,11 +69,14 @@ static inline void vmm_flush_tlb(uint64_t virt) {
 }
 
 /* Enable NX bit support via EFER MSR */
+#define MSR_EFER      0xC0000080   /* Extended Feature Enable Register */
+#define EFER_NXE_BIT  (1 << 11)    /* No-Execute Enable               */
+
 static inline void enable_nx(void) {
     uint32_t lo, hi;
-    asm volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(0xC0000080));
-    lo |= (1 << 11);  /* EFER.NXE */
-    asm volatile("wrmsr" :: "a"(lo), "d"(hi), "c"(0xC0000080));
+    asm volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(MSR_EFER));
+    lo |= EFER_NXE_BIT;
+    asm volatile("wrmsr" :: "a"(lo), "d"(hi), "c"(MSR_EFER));
 }
 
 /* ── Page Table Entry manipulation ────────────────────────────── */
