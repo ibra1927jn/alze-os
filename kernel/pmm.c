@@ -445,7 +445,7 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm) {
     uint64_t max_addr = 0;
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *e = memmap->entries[i];
-        if (e->type != 0) continue;  /* Only consider USABLE regions */
+        if (e->type != LIMINE_MEMMAP_USABLE) continue;
         uint64_t end = e->base + e->length;
         if (end > max_addr) max_addr = end;
     }
@@ -466,7 +466,7 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm) {
 
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *e = memmap->entries[i];
-        if (e->type == 0 && e->length > steal_size) {  /* USABLE = 0 */
+        if (e->type == LIMINE_MEMMAP_USABLE && e->length > steal_size) {
             steal_base = e->base;
             steal_size = e->length;
             steal_idx = i;
@@ -492,7 +492,7 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm) {
     /* Pass 3: Feed Usable regions into the buddy system */
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *e = memmap->entries[i];
-        if (e->type != 0) continue;  /* Only USABLE */
+        if (e->type != LIMINE_MEMMAP_USABLE) continue;
 
         uint64_t region_base = e->base;
         uint64_t region_end  = e->base + e->length;
