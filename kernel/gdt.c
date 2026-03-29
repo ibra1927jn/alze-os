@@ -41,8 +41,10 @@ struct gdt_pointer {
  * with larger, guard-page-protected stacks during vmm_init().
  * These must be large enough for early exception handling.
  */
-static uint8_t temp_rsp0_stack[4096] __attribute__((aligned(16)));
-static uint8_t temp_ist1_stack[2048] __attribute__((aligned(16)));
+#define TEMP_RSP0_STACK_SIZE  4096
+#define TEMP_IST1_STACK_SIZE  2048
+static uint8_t temp_rsp0_stack[TEMP_RSP0_STACK_SIZE] __attribute__((aligned(16)));
+static uint8_t temp_ist1_stack[TEMP_IST1_STACK_SIZE] __attribute__((aligned(16)));
 
 static struct tss tss_instance;
 
