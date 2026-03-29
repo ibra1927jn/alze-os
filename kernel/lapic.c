@@ -21,6 +21,46 @@
 #include "kprintf.h"
 #include "log.h"
 
+/* ── MSR and port constants ─────────────────────────────────────── */
+
+#define MSR_IA32_APIC_BASE     0x1B           /* IA32_APIC_BASE MSR address    */
+#define APIC_GLOBAL_ENABLE     (1 << 11)      /* Bit 11: APIC Global Enable    */
+#define APIC_BASE_ADDR_MASK    0xFFFFF000UL   /* Bits 12..35: base address     */
+
+/* PIT channel 2 calibration ports */
+#define PORT_SPEAKER_GATE      0x61           /* Speaker gate / PIT ch2 gate   */
+#define PORT_PIT_CH2_DATA      0x42           /* PIT channel 2 data port       */
+#define PORT_PIT_CMD           0x43           /* PIT command/mode register      */
+
+/* PIT channel 2 gate/speaker bit masks */
+#define SPEAKER_GATE_ON        0x01           /* Bit 0: enable ch2 gate        */
+#define SPEAKER_OFF_MASK       0xFD           /* Clear bit 1: disable speaker  */
+#define PIT_CH2_OUTPUT_BIT     0x20           /* Bit 5: ch2 output status      */
+
+/* PIT command for channel 2 calibration */
+#define PIT_CMD_CH2_ONESHOT    0xB0           /* Ch2, lo/hi byte, mode 0       */
+
+/* LAPIC timer calibration constants */
+#define LAPIC_TIMER_MAX_COUNT  0xFFFFFFFF     /* Max initial count (32-bit)    */
+#define PIT_CALIBRATION_TIMEOUT 0xFFFFFF      /* Spin-wait timeout iterations  */
+#define LAPIC_FALLBACK_TICKS   100000         /* Fallback elapsed for ~10ms    */
+
+/* LAPIC version register bit fields */
+#define LAPIC_VERSION_MASK     0xFF           /* Bits 0-7: version number      */
+#define LAPIC_MAX_LVT_SHIFT    16             /* Bits 16-23: max LVT entry     */
+#define LAPIC_MAX_LVT_MASK     0xFF           /* 8-bit field width             */
+
+/* LAPIC ID register */
+#define LAPIC_ID_SHIFT         24             /* Bits 24-31: LAPIC ID          */
+#define LAPIC_ID_MASK          0xFF           /* 8-bit field width             */
+
+/* Destination Format Register: flat model */
+#define LAPIC_DFR_FLAT_MODEL   0xFFFFFFFF     /* All bits 1 = flat model       */
+
+/* Logical Destination Register */
+#define LAPIC_LDR_SHIFT        24             /* LDR bitmask in bits 24-31     */
+#define LAPIC_MAX_FLAT_CPUS    8              /* Flat model supports 8 CPUs    */
+
 /* ── Estado interno ─────────────────────────────────────────────── */
 
 /* Flag: 1 si el LAPIC fue inicializado correctamente */
@@ -69,19 +109,19 @@ static void lapic_wait_icr_idle(void) {
  */
 static int lapic_check_msr(void) {
     uint32_t lo, hi;
-    asm volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(0x1B));
+    asm volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(MSR_IA32_APIC_BASE));
 
     /* Verificar bit 11: APIC habilitado globalmente */
-    if (!(lo & (1 << 11))) {
+    if (!(lo & APIC_GLOBAL_ENABLE)) {
         LOG_WARN("LAPIC: APIC Global Enable bit not set in IA32_APIC_BASE MSR");
         /* Intentar habilitarlo */
-        lo |= (1 << 11);
-        asm volatile("wrmsr" :: "a"(lo), "d"(hi), "c"(0x1B));
+        lo |= APIC_GLOBAL_ENABLE;
+        asm volatile("wrmsr" :: "a"(lo), "d"(hi), "c"(MSR_IA32_APIC_BASE));
         LOG_INFO("LAPIC: enabled APIC via IA32_APIC_BASE MSR");
     }
 
     /* Extraer la base fisica (bits 12..35, alineada a 4KB) */
-    uint64_t base = ((uint64_t)hi << 32) | (lo & 0xFFFFF000UL);
+    uint64_t base = ((uint64_t)hi << 32) | (lo & APIC_BASE_ADDR_MASK);
     if (base != LAPIC_BASE_PHYS) {
         LOG_WARN("LAPIC: base address 0x%lx differs from standard 0x%lx",
                  base, (uint64_t)LAPIC_BASE_PHYS);
@@ -119,40 +159,40 @@ static uint32_t lapic_calibrate_timer(void) {
     #define CALIBRATION_PIT_TICKS   11932   /* ~10ms a 1.193182 MHz */
 
     /* Deshabilitar speaker, habilitar gate para channel 2 */
-    uint8_t gate = inb(0x61);
-    gate = (gate & 0xFD) | 0x01;   /* bit 0=gate on, bit 1=speaker off */
-    outb(0x61, gate);
+    uint8_t gate = inb(PORT_SPEAKER_GATE);
+    gate = (gate & SPEAKER_OFF_MASK) | SPEAKER_GATE_ON;
+    outb(PORT_SPEAKER_GATE, gate);
 
     /* PIT channel 2, mode 0 (interrupt on terminal count), lo/hi byte */
-    outb(0x43, 0xB0);              /* 10_11_000_0: ch2, lobyte/hibyte, mode 0 */
-    outb(0x42, CALIBRATION_PIT_TICKS & 0xFF);
-    outb(0x42, (CALIBRATION_PIT_TICKS >> 8) & 0xFF);
+    outb(PORT_PIT_CMD, PIT_CMD_CH2_ONESHOT);
+    outb(PORT_PIT_CH2_DATA, CALIBRATION_PIT_TICKS & 0xFF);
+    outb(PORT_PIT_CH2_DATA, (CALIBRATION_PIT_TICKS >> 8) & 0xFF);
 
     /* Reiniciar el gate para comenzar la cuenta del PIT channel 2 */
-    gate = inb(0x61);
-    outb(0x61, gate & 0xFE);       /* Gate off */
-    outb(0x61, gate | 0x01);       /* Gate on — comienza la cuenta */
+    gate = inb(PORT_SPEAKER_GATE);
+    outb(PORT_SPEAKER_GATE, gate & ~SPEAKER_GATE_ON);  /* Gate off */
+    outb(PORT_SPEAKER_GATE, gate | SPEAKER_GATE_ON);   /* Gate on — comienza */
 
     /* Arrancar LAPIC timer con cuenta maxima */
-    lapic_write(LAPIC_REG_TIMER_ICR, 0xFFFFFFFF);
+    lapic_write(LAPIC_REG_TIMER_ICR, LAPIC_TIMER_MAX_COUNT);
 
     /* Esperar a que PIT channel 2 llegue a 0.
      * El bit 5 del port 0x61 indica el output de channel 2.
      * Cuando la cuenta termina, el output pasa a 1 (mode 0).
      * Timeout para evitar hang si el PIT no responde. */
-    uint32_t pit_timeout = 0xFFFFFF;
-    while (!(inb(0x61) & 0x20) && --pit_timeout > 0) {
+    uint32_t pit_timeout = PIT_CALIBRATION_TIMEOUT;
+    while (!(inb(PORT_SPEAKER_GATE) & PIT_CH2_OUTPUT_BIT) && --pit_timeout > 0) {
         asm volatile("pause");
     }
 
     /* Leer cuanto decremento el LAPIC timer */
     uint32_t remaining = lapic_read(LAPIC_REG_TIMER_CCR);
-    uint32_t elapsed = 0xFFFFFFFF - remaining;
+    uint32_t elapsed = LAPIC_TIMER_MAX_COUNT - remaining;
 
     /* Si el PIT no respondio, usar un fallback razonable */
     if (pit_timeout == 0) {
         kprintf("[LAPIC] PIT calibration timeout, using fallback\n");
-        elapsed = 100000; /* ~10M ticks/sec como estimacion conservadora */
+        elapsed = LAPIC_FALLBACK_TICKS;
     }
 
     /* Detener el LAPIC timer */
@@ -182,21 +222,22 @@ void lapic_init(void) {
 
     /* Leer version para diagnostico */
     uint32_t version = lapic_read(LAPIC_REG_VERSION);
-    uint32_t max_lvt = ((version >> 16) & 0xFF) + 1;
-    LOG_INFO("LAPIC: version 0x%x, max LVT entries: %u", version & 0xFF, max_lvt);
+    uint32_t max_lvt = ((version >> LAPIC_MAX_LVT_SHIFT) & LAPIC_MAX_LVT_MASK) + 1;
+    LOG_INFO("LAPIC: version 0x%x, max LVT entries: %u",
+             version & LAPIC_VERSION_MASK, max_lvt);
 
     /* Limpiar TPR: aceptar todas las interrupciones (prioridad 0) */
     lapic_write(LAPIC_REG_TPR, 0);
 
     /* Configurar Destination Format Register: flat model (todos los bits en 1) */
-    lapic_write(LAPIC_REG_DFR, 0xFFFFFFFF);
+    lapic_write(LAPIC_REG_DFR, LAPIC_DFR_FLAT_MODEL);
 
     /* Configurar Logical Destination Register: bit para esta CPU.
      * En flat model, LDR bits 24-31 son un bitmask de 8 bits.
      * Si el LAPIC ID >= 8, usamos bit 0 como fallback seguro. */
     uint32_t id = lapic_get_id();
-    uint32_t ldr_bit = (id < 8) ? (1U << id) : 1U;
-    lapic_write(LAPIC_REG_LDR, ldr_bit << 24);
+    uint32_t ldr_bit = (id < LAPIC_MAX_FLAT_CPUS) ? (1U << id) : 1U;
+    lapic_write(LAPIC_REG_LDR, ldr_bit << LAPIC_LDR_SHIFT);
 
     /* Habilitar LAPIC via SVR:
      * Bit 8 = Enable, bits 0-7 = spurious vector (0xFF) */
@@ -232,7 +273,7 @@ void lapic_init(void) {
 
 uint32_t lapic_get_id(void) {
     /* El LAPIC ID esta en bits 24-31 del registro ID */
-    return (lapic_read(LAPIC_REG_ID) >> 24) & 0xFF;
+    return (lapic_read(LAPIC_REG_ID) >> LAPIC_ID_SHIFT) & LAPIC_ID_MASK;
 }
 
 int lapic_is_enabled(void) {
