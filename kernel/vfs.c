@@ -40,6 +40,7 @@ void vfs_init(void) {
 
 int vfs_register_device(const char *name, enum vnode_type type,
                         struct file_ops *ops, void *private_data) {
+    if (!name) return -EINVAL;
     rwlock_write_lock(&vfs_rwlock);
 
     if (device_count >= VFS_MAX_DEVICES) {

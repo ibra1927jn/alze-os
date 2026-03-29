@@ -44,6 +44,7 @@ static struct ramdisk rd = {
 static int64_t ramdisk_vfs_read(struct vnode *vn, void *buf, uint64_t count) {
     (void)vn;
     if (!rd.loaded) return -EIO;
+    if (!buf) return -EINVAL;
     if (count > rd.size) count = rd.size;
     memcpy(buf, rd.base, count);
     return (int64_t)count;
