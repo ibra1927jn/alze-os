@@ -8,7 +8,9 @@
  * Run:    ./test_pmm
  */
 
+#ifndef PMM_USERSPACE_TEST
 #define PMM_USERSPACE_TEST
+#endif
 
 #include "../kernel/pmm.h"
 #include <stdio.h>
