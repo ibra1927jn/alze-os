@@ -3,6 +3,11 @@
 ## En curso
 - [2026-03-29] | Heartbeat maintenance: 7 fixes + 3 cleanup items across pmm, msgqueue, ramdisk, ext2, vfs, pic, idt, repo | 100%
 
+## Sesion 2026-03-29 (heartbeat pass 3)
+- fix(sched): add missing panic.h include — KASSERT was undeclared, breaking build | db3bc1c
+- refactor(kernel): normalize limine.h include paths in pmm.c, ramdisk.c, main.c | ce1d9eb
+- Build: clean (was 1 error), Tests: 29/29 passing (unchanged)
+
 ## Sesion 2026-03-29 (heartbeat pass 2)
 - fix(pmm): move irq_flags inside #ifndef guard to fix -Wunused-variable | 2670721
 - fix(test): guard PMM_USERSPACE_TEST define to fix -Wmacro-redefined | 2670721
