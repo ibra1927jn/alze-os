@@ -20,6 +20,16 @@
 #include "watchdog.h"
 #include <stdint.h>
 
+/* x86 exception vector numbers */
+#define EXCEPTION_PAGE_FAULT  14
+
+/* Page fault error code bits */
+#define PF_PRESENT       (1 << 0)   /* 0 = not present, 1 = protection violation */
+#define PF_WRITE         (1 << 1)   /* 0 = read, 1 = write */
+#define PF_USER          (1 << 2)   /* 0 = kernel, 1 = user mode */
+#define PF_RESERVED_BIT  (1 << 3)   /* 1 = reserved bit set in PTE */
+#define PF_INSTR_FETCH   (1 << 4)   /* 1 = instruction fetch (NX) */
+
 /* ── IDT structures ───────────────────────────────────────────── */
 
 struct idt_entry {
@@ -111,13 +121,13 @@ void exception_handler_c(struct interrupt_frame *frame) {
     kprintf("    R13=%016lx  R14=%016lx\n", frame->r13, frame->r14);
     kprintf("    R15=%016lx\n", frame->r15);
 
-    if (frame->vector == 14) {
+    if (frame->vector == EXCEPTION_PAGE_FAULT) {
         kprintf("\n" ANSI_RED "  Page Fault details:" ANSI_RESET "\n");
-        kprintf("    %s\n", (frame->error_code & 1) ? "Protection violation" : "Page not present");
-        kprintf("    %s access\n", (frame->error_code & 2) ? "Write" : "Read");
-        kprintf("    %s mode\n", (frame->error_code & 4) ? "User" : "Kernel");
-        if (frame->error_code & 8)  kprintf("    Reserved bit set\n");
-        if (frame->error_code & 16) kprintf("    Instruction fetch\n");
+        kprintf("    %s\n", (frame->error_code & PF_PRESENT) ? "Protection violation" : "Page not present");
+        kprintf("    %s access\n", (frame->error_code & PF_WRITE) ? "Write" : "Read");
+        kprintf("    %s mode\n", (frame->error_code & PF_USER) ? "User" : "Kernel");
+        if (frame->error_code & PF_RESERVED_BIT) kprintf("    Reserved bit set\n");
+        if (frame->error_code & PF_INSTR_FETCH)  kprintf("    Instruction fetch\n");
     }
 
     asm volatile("cli");
