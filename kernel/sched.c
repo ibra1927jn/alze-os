@@ -28,6 +28,7 @@
 #include "log.h"
 #include "pic.h"
 #include "waitqueue.h"
+#include "panic.h"
 #include "compiler.h"
 #include "qos.h"
 #include "vmm.h"
