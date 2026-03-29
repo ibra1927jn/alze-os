@@ -14,6 +14,10 @@
 #include "string.h"
 #include "pic.h"
 #include "log.h"
+#include "kb.h"
+#include "sched.h"
+#include "ktimer.h"
+#include "watchdog.h"
 #include <stdint.h>
 
 /* ── IDT structures ───────────────────────────────────────────── */
@@ -123,11 +127,6 @@ void exception_handler_c(struct interrupt_frame *frame) {
 }
 
 /* ── IRQ handler (called from irq_common in interrupts.asm) ──── */
-
-#include "kb.h"
-#include "sched.h"
-#include "ktimer.h"
-#include "watchdog.h"
 
 /* Forward decl from pic.c */
 extern void irq_dispatch(uint8_t irq);
