@@ -1,6 +1,19 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
+- [2026-03-29] | Heartbeat maintenance: 7 fixes across pmm, msgqueue, ramdisk, ext2, vfs, test harness | 100%
+
+## Sesion 2026-03-29 (heartbeat)
+- fix(pmm): move irq_flags inside #ifndef guard to fix -Wunused-variable | 2670721
+- fix(test): guard PMM_USERSPACE_TEST define to fix -Wmacro-redefined | 2670721
+- fix(ramdisk): prevent integer overflow in bounds check (offset+count wrap) | 2580b15
+- fix(ext2): prevent integer overflow in read bounds check | 2580b15
+- fix(msgqueue): add NULL validation to mq_send, mq_recv, mq_trysend, mq_tryrecv | b05e8d9
+- fix(ramdisk): add NULL buf check in ramdisk_vfs_read | 42b11f7
+- fix(vfs): add NULL name check in vfs_register_device | 42b11f7
+- Tests: 29/29 passing (was 29/29), 0 warnings (was 2)
+
+## Completado (anterior)
 - [2026-03-28] | Quality/hardening pass: sched.c, vmm.c, kmalloc.c, string.c, main.c (12 fixes) | 100%
 
 ## Completado
