@@ -94,7 +94,8 @@ static void kprint_signed(int64_t val, int width, char pad) {
     if (val < 0) {
         kprint_char('-');
         if (width > 0) width--;
-        kprint_unsigned((uint64_t)(-val), 10, width, pad, false);
+        /* Cast to unsigned before negating to avoid UB on INT64_MIN */
+        kprint_unsigned(-(uint64_t)val, 10, width, pad, false);
     } else {
         kprint_unsigned((uint64_t)val, 10, width, pad, false);
     }
@@ -247,7 +248,8 @@ static void snprint_signed(struct snprintf_ctx *ctx, int64_t val,
     if (val < 0) {
         snprint_char(ctx, '-');
         if (width > 0) width--;
-        snprint_unsigned(ctx, (uint64_t)(-val), 10, width, pad, false);
+        /* Cast to unsigned before negating to avoid UB on INT64_MIN */
+        snprint_unsigned(ctx, -(uint64_t)val, 10, width, pad, false);
     } else {
         snprint_unsigned(ctx, (uint64_t)val, 10, width, pad, false);
     }
