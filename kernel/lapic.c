@@ -69,8 +69,6 @@ static volatile int lapic_enabled = 0;
 /* Ticks del LAPIC timer por segundo (calculado durante calibracion) */
 static uint32_t lapic_ticks_per_sec = 0;
 
-/* Frecuencia configurada del timer (Hz) */
-static uint32_t lapic_timer_freq = 0;
 
 /* ── MMIO: acceso a registros LAPIC ─────────────────────────────── */
 
@@ -346,8 +344,6 @@ void lapic_timer_init(uint32_t frequency) {
         LOG_ERROR("LAPIC timer: frequency %u Hz too high for calibrated rate", frequency);
         return;
     }
-
-    lapic_timer_freq = frequency;
 
     /* Configurar divisor: 16 (mismo que calibracion) */
     lapic_write(LAPIC_REG_TIMER_DCR, LAPIC_TIMER_DIV_16);
