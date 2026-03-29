@@ -58,7 +58,11 @@ int ext2_init(void *ramdisk_base, uint64_t ramdisk_size) {
         return -EINVAL;
     }
 
-    /* Calcular tamano de bloque */
+    /* Calcular tamano de bloque (valid range: 0-6, i.e. 1K-64K) */
+    if (fs.sb.s_log_block_size > 6) {
+        LOG_ERROR("ext2: invalid s_log_block_size %u", fs.sb.s_log_block_size);
+        return -EINVAL;
+    }
     fs.block_size = 1024U << fs.sb.s_log_block_size;
 
     /* Tamano de inode: rev 0 usa 128 bytes fijo, rev >= 1 usa s_inode_size */
