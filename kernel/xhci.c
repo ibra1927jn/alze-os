@@ -48,7 +48,22 @@ static inline void xhci_op_write32(uint32_t offset, uint32_t val) {
 #define XHCI_OP_CONFIG   0x38
 
 /* Port Status register: cada puerto ocupa 0x10 bytes empezando en offset 0x400 */
-#define XHCI_OP_PORTSC(n)  (0x400 + ((n) * 0x10))
+#define XHCI_PORT_REG_BASE   0x400
+#define XHCI_PORT_REG_SIZE   0x10
+#define XHCI_OP_PORTSC(n)  (XHCI_PORT_REG_BASE + ((n) * XHCI_PORT_REG_SIZE))
+
+/* PCI BAR decoding */
+#define PCI_BAR_IO_BIT         0x01   /* Bit 0: 1=I/O, 0=MMIO          */
+#define PCI_BAR_ADDR_MASK_32   0xFFFFFFF0U  /* Bits 31:4 for 32-bit BAR */
+#define PCI_BAR_TYPE_MASK      0x06   /* Bits 2:1: BAR type             */
+#define PCI_BAR_TYPE_64BIT     0x04   /* Type 10b: 64-bit BAR           */
+
+/* PCI Command register bits */
+#define PCI_CMD_MEMORY_SPACE   (1 << 1)   /* Enable memory-mapped access */
+#define PCI_CMD_BUS_MASTER     (1 << 2)   /* Enable bus mastering        */
+
+/* PORTSC speed field shift */
+#define XHCI_PORTSC_SPEED_SHIFT  10
 
 /* ── Nombre legible del speed ───────────────────────────────────── */
 
@@ -124,7 +139,7 @@ static void xhci_enumerate_ports(uint32_t max_ports) {
 
         /* Verificar si hay un dispositivo conectado */
         if (portsc & XHCI_PORTSC_CCS) {
-            uint32_t speed = (portsc & XHCI_PORTSC_SPEED_MASK) >> 10;
+            uint32_t speed = (portsc & XHCI_PORTSC_SPEED_MASK) >> XHCI_PORTSC_SPEED_SHIFT;
             LOG_OK("USB device detected on port %u — %s", port + 1,
                    xhci_speed_str(speed));
             devices_found++;
@@ -159,16 +174,16 @@ void xhci_init(void) {
     uint32_t bar0 = pci_dev.bar[0];
 
     /* Verificar que es MMIO (bit 0 = 0) */
-    if (bar0 & 1) {
+    if (bar0 & PCI_BAR_IO_BIT) {
         LOG_ERROR("xHCI: BAR0 is I/O mapped, expected MMIO");
         return;
     }
 
     /* Extraer direccion base (bits 31:4 para 32-bit, o usar BAR1 para 64-bit) */
-    uint64_t mmio_phys = bar0 & 0xFFFFFFF0;
+    uint64_t mmio_phys = bar0 & PCI_BAR_ADDR_MASK_32;
 
     /* Si BAR0 indica 64-bit (bits 2:1 == 10), combinar con BAR1 */
-    if ((bar0 & 0x06) == 0x04) {
+    if ((bar0 & PCI_BAR_TYPE_MASK) == PCI_BAR_TYPE_64BIT) {
         mmio_phys |= (uint64_t)pci_dev.bar[1] << 32;
     }
 
@@ -182,7 +197,7 @@ void xhci_init(void) {
     /* Habilitar Bus Master y Memory Space en PCI command register */
     uint16_t cmd = pci_read16(pci_dev.bus, pci_dev.device,
                               pci_dev.function, PCI_COMMAND);
-    cmd |= (1 << 1) | (1 << 2);  /* Memory Space + Bus Master */
+    cmd |= PCI_CMD_MEMORY_SPACE | PCI_CMD_BUS_MASTER;
     pci_write32(pci_dev.bus, pci_dev.device, pci_dev.function,
                 PCI_COMMAND, cmd);
 
