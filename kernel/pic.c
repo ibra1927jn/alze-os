@@ -31,10 +31,6 @@
 /* ── PIC initialization ─────────────────────────────────────── */
 
 void pic_init(void) {
-    /* Save current masks */
-    uint8_t mask1 = inb(PIC1_DATA);
-    uint8_t mask2 = inb(PIC2_DATA);
-
     /* ICW1: Start initialization sequence (cascade mode, ICW4 needed) */
     outb(PIC1_CMD, ICW1_INIT); io_wait();
     outb(PIC2_CMD, ICW1_INIT); io_wait();
@@ -54,9 +50,6 @@ void pic_init(void) {
     /* Mask ALL IRQs initially — we unmask individually as needed */
     outb(PIC1_DATA, 0xFF);
     outb(PIC2_DATA, 0xFF);
-
-    (void)mask1;
-    (void)mask2;
 }
 
 void pic_eoi(uint8_t irq) {
