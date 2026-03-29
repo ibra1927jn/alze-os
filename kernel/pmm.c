@@ -40,7 +40,7 @@
     #include "memory.h"
     #include "string.h"
     #include "spinlock.h"
-    #include "../limine/limine.h"
+    #include "limine.h"
     #define PMM_LOG(fmt, ...)  LOG_INFO(fmt, ##__VA_ARGS__)
     #define PMM_ASSERT(cond)   KASSERT(cond)
 

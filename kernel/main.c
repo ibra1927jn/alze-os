@@ -37,7 +37,7 @@
 #include "xhci.h"
 
 /* Limine protocol */
-#include "../limine/limine.h"
+#include "limine.h"
 
 /* SSP init (defined in ssp.c) */
 extern void ssp_init(void);

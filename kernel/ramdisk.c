@@ -21,7 +21,7 @@
 #include "vfs.h"
 
 /* Incluir limine protocol para la request de modulos */
-#include "../limine/limine.h"
+#include "limine.h"
 
 /* ── Limine module request ──────────────────────────────────────── */
 
