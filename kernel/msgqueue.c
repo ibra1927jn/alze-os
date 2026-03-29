@@ -43,7 +43,7 @@ static void mq_dequeue(struct msg_queue *mq, void *buf,
 /* ── Blocking send ───────────────────────────────────────────── */
 
 int mq_send(struct msg_queue *mq, const void *data, uint32_t len) {
-    if (len > MQ_MSG_SIZE) return -EINVAL;
+    if (!mq || !data || len > MQ_MSG_SIZE) return -EINVAL;
 
     while (1) {
         uint64_t irq_flags;
@@ -73,6 +73,7 @@ int mq_send(struct msg_queue *mq, const void *data, uint32_t len) {
 
 int mq_recv(struct msg_queue *mq, void *buf, uint32_t *out_len,
             uint32_t *out_sender) {
+    if (!mq || !buf) return -EINVAL;
     while (1) {
         uint64_t irq_flags;
         spin_lock_irqsave(&mq->lock, &irq_flags);
@@ -100,7 +101,7 @@ int mq_recv(struct msg_queue *mq, void *buf, uint32_t *out_len,
 /* ── Non-blocking variants ───────────────────────────────────── */
 
 int mq_trysend(struct msg_queue *mq, const void *data, uint32_t len) {
-    if (len > MQ_MSG_SIZE) return -EINVAL;
+    if (!mq || !data || len > MQ_MSG_SIZE) return -EINVAL;
 
     uint64_t irq_flags;
     spin_lock_irqsave(&mq->lock, &irq_flags);
@@ -119,6 +120,7 @@ int mq_trysend(struct msg_queue *mq, const void *data, uint32_t len) {
 
 int mq_tryrecv(struct msg_queue *mq, void *buf, uint32_t *out_len,
                uint32_t *out_sender) {
+    if (!mq || !buf) return -EINVAL;
     uint64_t irq_flags;
     spin_lock_irqsave(&mq->lock, &irq_flags);
 
