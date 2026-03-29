@@ -39,6 +39,9 @@
 #define PIT_CMD_CH0_RATE_GEN  0x34   /* Ch0, lo/hi byte, mode 2 (rate generator) */
 #define PIT_CMD_CH0_ONESHOT   0x30   /* Ch0, lo/hi byte, mode 0 (one-shot)       */
 
+/* PIT 16-bit counter maximum value */
+#define PIT_MAX_COUNT         65535  /* 16-bit max (~55ms at 1.193MHz)            */
+
 /* ── PIC initialization ─────────────────────────────────────── */
 
 void pic_init(void) {
@@ -139,7 +142,7 @@ void pit_init(uint32_t frequency_hz) {
 void pit_set_oneshot(uint32_t ticks) {
     if (ticks == 0) ticks = 1;
     /* Cap at 16-bit max (65535 = ~55ms at 1.193MHz) */
-    if (ticks > 65535) ticks = 65535;
+    if (ticks > PIT_MAX_COUNT) ticks = PIT_MAX_COUNT;
 
     /* Channel 0, Access: lobyte/hibyte, Mode 0 (one-shot) */
     outb(PIT_CMD, PIT_CMD_CH0_ONESHOT);
