@@ -19,6 +19,9 @@
 
 /* ── Timer wheel state ───────────────────────────────────────── */
 
+/* At 100 Hz, each PIT tick is 10 ms */
+#define TIMER_TICK_MS  10
+
 static struct list_head timer_wheel[TIMER_WHEEL_SIZE];
 static spinlock_t timer_lock = SPINLOCK_INIT;
 static uint32_t active_timers = 0;
@@ -55,7 +58,7 @@ void ktimer_start(struct ktimer *t, uint64_t delay_ms) {
         active_timers--;
     }
 
-    uint64_t ticks = delay_ms / 10;  /* 100 Hz = 10ms/tick */
+    uint64_t ticks = delay_ms / TIMER_TICK_MS;  /* 100 Hz = 10ms/tick */
     if (ticks == 0) ticks = 1;
 
     t->expires = pit_get_ticks() + ticks;
@@ -76,7 +79,7 @@ void ktimer_start_repeating(struct ktimer *t, uint64_t interval_ms) {
         active_timers--;
     }
 
-    uint64_t ticks = interval_ms / 10;
+    uint64_t ticks = interval_ms / TIMER_TICK_MS;
     if (ticks == 0) ticks = 1;
 
     t->expires = pit_get_ticks() + ticks;
