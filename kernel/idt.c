@@ -167,13 +167,16 @@ void irq_handler_c(struct interrupt_frame *frame) {
 
 /* ── IDT setup ────────────────────────────────────────────────── */
 
+/* Type/attr byte: Present=1, DPL=0, Type=0xE (64-bit Interrupt Gate) */
+#define IDT_GATE_KERNEL_INTR  0x8E
+
 static void idt_set_gate(int vector, void (*handler)(void), uint8_t ist) {
     uint64_t addr = (uint64_t)handler;
 
     idt[vector].offset_low  = addr & 0xFFFF;
     idt[vector].selector    = GDT_KERNEL_CODE;
     idt[vector].ist         = ist;
-    idt[vector].type_attr   = 0x8E;   /* Present, DPL=0, 64-bit Interrupt Gate */
+    idt[vector].type_attr   = IDT_GATE_KERNEL_INTR;
     idt[vector].offset_mid  = (addr >> 16) & 0xFFFF;
     idt[vector].offset_high = (addr >> 32) & 0xFFFFFFFF;
     idt[vector].reserved    = 0;
