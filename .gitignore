@@ -1,0 +1,20 @@
+# Build artifacts
+build/
+*.o
+*.elf
+*.iso
+
+# Editor / IDE
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
