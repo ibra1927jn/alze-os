@@ -20,6 +20,8 @@
 
 #define EXT2_SUPER_MAGIC       0xEF53
 #define EXT2_SUPERBLOCK_OFFSET 1024   /* Superblock empieza en byte 1024 */
+#define EXT2_BASE_BLOCK_SIZE   1024   /* block_size = EXT2_BASE_BLOCK_SIZE << s_log_block_size */
+#define EXT2_REV0_INODE_SIZE   128    /* Default inode size for revision 0 */
 
 /* Tipos de inode (campo i_mode, bits 12-15) */
 #define EXT2_S_IFREG  0x8000  /* Regular file */

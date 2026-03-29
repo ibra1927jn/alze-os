@@ -63,13 +63,13 @@ int ext2_init(void *ramdisk_base, uint64_t ramdisk_size) {
         LOG_ERROR("ext2: invalid s_log_block_size %u", fs.sb.s_log_block_size);
         return -EINVAL;
     }
-    fs.block_size = 1024U << fs.sb.s_log_block_size;
+    fs.block_size = EXT2_BASE_BLOCK_SIZE << fs.sb.s_log_block_size;
 
     /* Tamano de inode: rev 0 usa 128 bytes fijo, rev >= 1 usa s_inode_size */
     if (fs.sb.s_rev_level >= 1 && fs.sb.s_inode_size > 0) {
         fs.inode_size = fs.sb.s_inode_size;
     } else {
-        fs.inode_size = 128;
+        fs.inode_size = EXT2_REV0_INODE_SIZE;
     }
 
     /* Numero de block groups */
@@ -80,7 +80,7 @@ int ext2_init(void *ramdisk_base, uint64_t ramdisk_size) {
      * Si block_size == 1024, superblock esta en bloque 1, GDT en bloque 2.
      * Si block_size >= 2048, superblock esta en bloque 0 (offset 1024), GDT en bloque 1. */
     uint32_t gdt_block;
-    if (fs.block_size == 1024) {
+    if (fs.block_size == EXT2_BASE_BLOCK_SIZE) {
         gdt_block = 2;
     } else {
         gdt_block = 1;
