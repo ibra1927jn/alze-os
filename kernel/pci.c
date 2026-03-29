@@ -14,6 +14,9 @@
 #include "log.h"
 #include "errno.h"
 
+/* Header type bit 7: multi-function device */
+#define PCI_HEADER_MULTIFUNC  0x80
+
 /* ── Lectura/escritura PCI config space ─────────────────────────── */
 
 uint32_t pci_read32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset) {
@@ -78,7 +81,7 @@ int pci_find_device(uint8_t class_code, uint8_t subclass, uint8_t prog_if,
                 /* Si no es multi-function, no seguir con func > 0 */
                 if (func == 0) {
                     uint8_t hdr = pci_read8((uint8_t)bus, dev, func, PCI_HEADER_TYPE);
-                    if (!(hdr & 0x80)) break;  /* Bit 7: multi-function */
+                    if (!(hdr & PCI_HEADER_MULTIFUNC)) break;  /* Bit 7: multi-function */
                 }
             }
         }
@@ -113,7 +116,7 @@ void pci_enumerate(void) {
 
                 if (func == 0) {
                     uint8_t hdr = pci_read8((uint8_t)bus, dev, func, PCI_HEADER_TYPE);
-                    if (!(hdr & 0x80)) break;
+                    if (!(hdr & PCI_HEADER_MULTIFUNC)) break;
                 }
             }
         }
