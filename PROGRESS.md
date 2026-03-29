@@ -1,7 +1,18 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
-- [2026-03-29] | Heartbeat maintenance: 13 fixes + 8 cleanup items across pmm, msgqueue, ramdisk, ext2, vfs, pic, idt, console, kprintf, lapic, gdt, repo | 100%
+- [2026-03-29] | Heartbeat maintenance: continued dead code removal + magic number cleanup | 100%
+
+## Sesion 2026-03-29 (heartbeat pass 8)
+- refactor(lapic): remove write-only lapic_timer_freq variable (dead code) | 6726f47
+- refactor(kmalloc,xhci): remove unused SLAB_MAX_SIZE, POISON_PATTERN, 5 xHCI register defines | 6794e56
+- refactor(cpuid): define named constants for CPUID feature bits and field masks | d3570a6
+- refactor(pci): define PCI_MAX_BUS/DEVICE/FUNCTION constants for scan loops | ca672c2
+- refactor(pic): define PIT_MAX_COUNT constant instead of magic 65535 | f4f0801
+- refactor(ktimer): define TIMER_TICK_MS constant instead of magic 10 | 7154988
+- refactor(idt): define named constants for page fault vector and error code bits | 94e205c
+- refactor(panic): define RFLAGS bit constants for register dump decoding | b7532b2
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Sesion 2026-03-29 (heartbeat pass 7)
 - refactor(pic): replace magic numbers with named constants for ICW3/masks/PIT commands | 0c0f4da
