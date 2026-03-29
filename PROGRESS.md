@@ -1,7 +1,15 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
-- [2026-03-29] | Heartbeat maintenance: 7 fixes + 3 cleanup items across pmm, msgqueue, ramdisk, ext2, vfs, pic, idt, repo | 100%
+- [2026-03-29] | Heartbeat maintenance: 10 fixes + 5 cleanup items across pmm, msgqueue, ramdisk, ext2, vfs, pic, idt, console, kprintf, repo | 100%
+
+## Sesion 2026-03-29 (heartbeat pass 5)
+- refactor(console): move mid-file #include "font8x16.h" to top include block | fe25742
+- refactor(kernel): remove unused #include headers in main.c and xhci.c | f693651
+- fix(console): use exact COL_BG color when clearing scrolled line | e6d0e3b
+- fix(kprintf): avoid signed integer overflow UB when printing INT64_MIN | 9cd6c68
+- fix(ext2): validate s_log_block_size to prevent shift overflow | e4815af
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Sesion 2026-03-29 (heartbeat pass 4)
 - refactor(kernel): move mid-file #includes to top in kprintf.c, main.c, tests.c | 284539d
