@@ -77,9 +77,14 @@ static void scroll_up(void) {
     /* Move everything up by one text line */
     memmove(fb, (uint8_t *)fb + line_bytes, total - line_bytes);
 
-    /* Clear the last line */
-    uint8_t *last = (uint8_t *)fb + total - line_bytes;
-    memset(last, 0x10, line_bytes);  /* COL_BG approximation */
+    /* Clear the last line with exact COL_BG pixels */
+    uint32_t ppitch = fb_pitch / 4;
+    uint32_t start_y = (rows - 1) * FONT_H;
+    for (uint32_t y = start_y; y < start_y + FONT_H; y++) {
+        for (uint32_t x = 0; x < fb_width; x++) {
+            fb[y * ppitch + x] = COL_BG;
+        }
+    }
 }
 
 /* ── Public API ──────────────────────────────────────────────── */
