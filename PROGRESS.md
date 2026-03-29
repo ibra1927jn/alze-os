@@ -3,6 +3,16 @@
 ## En curso
 - [2026-03-29] | Heartbeat maintenance: 13 fixes + 8 cleanup items across pmm, msgqueue, ramdisk, ext2, vfs, pic, idt, console, kprintf, lapic, gdt, repo | 100%
 
+## Sesion 2026-03-29 (heartbeat pass 7)
+- refactor(pic): replace magic numbers with named constants for ICW3/masks/PIT commands | 0c0f4da
+- refactor(idt): define IDT_GATE_KERNEL_INTR constant for 0x8E gate attribute | e931f1d
+- refactor(lapic): replace magic numbers with named constants for MSR/ports/bit fields | 1253220
+- refactor(vmm): define MSR_EFER and EFER_NXE_BIT constants for NX enable | 4a8d368
+- refactor(xhci): replace magic numbers with named constants for BAR/PCI command bits | 7a8e8f7
+- refactor(pci): define PCI_HEADER_MULTIFUNC constant for multi-function bit check | 3d00d49
+- refactor(watchdog): remove write-only watchdog_warnings counter (dead code) | b9e42cf
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
+
 ## Sesion 2026-03-29 (heartbeat pass 6)
 - fix(lapic): use 64-bit arithmetic to prevent overflow in timer calibration | 93283ff
 - refactor(ext2): replace magic numbers 1024/128 with EXT2_BASE_BLOCK_SIZE/EXT2_REV0_INODE_SIZE | 2991263
