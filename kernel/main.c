@@ -35,6 +35,10 @@
 #include "ext2.h"
 #include "pci.h"
 #include "xhci.h"
+#include "selftest.h"
+#include "pic.h"
+#include "percpu.h"
+#include "cpuidle.h"
 
 /* Limine protocol */
 #include "limine.h"
@@ -90,11 +94,6 @@ static const char *memmap_type_str(uint64_t type) {
         default:                                   return "Unknown";
     }
 }
-
-#include "selftest.h"
-#include "pic.h"
-#include "percpu.h"
-#include "cpuidle.h"
 
 /* Tests are in kernel/tests.c */
 extern void register_selftests(void);

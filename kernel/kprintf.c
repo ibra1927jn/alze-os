@@ -20,14 +20,14 @@
 
 #include "kprintf.h"
 #include "uart.h"
+#include "console.h"
+#include "klog.h"
+#include "pic.h"      /* pit_get_ticks() for rate limiter */
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdbool.h>
 
 /* ── Internal helpers ─────────────────────────────────────────── */
-
-#include "console.h"
-#include "klog.h"
 
 static void kprint_char(char c) {
     if (c == '\n') {
@@ -321,8 +321,6 @@ int ksnprintf(char *buf, size_t size, const char *fmt, ...) {
 }
 
 /* ── Rate limiter (Linux printk_ratelimit pattern) ───────────── */
-
-#include "pic.h"  /* pit_get_ticks() */
 
 int kprintf_rl_allow(struct kprintf_ratelimit *rl) {
     uint64_t now = pit_get_ticks();

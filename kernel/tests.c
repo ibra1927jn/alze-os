@@ -29,6 +29,7 @@
 #include "rwlock.h"
 #include "percpu.h"
 #include "cpuidle.h"
+#include "list.h"
 
 /* ── Spinlock & Memory tests ─────────────────────────────────── */
 
@@ -336,8 +337,6 @@ static bool test_pmm_stress(void) {
 }
 
 /* ── List test ───────────────────────────────────────────────── */
-
-#include "list.h"
 
 static bool test_list_operations(void) {
     struct list_head head = LIST_HEAD_INIT(head);
