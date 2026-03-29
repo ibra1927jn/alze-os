@@ -28,6 +28,17 @@
 /* OCW2: End of Interrupt */
 #define PIC_EOI    0x20
 
+/* ICW3: Cascade wiring */
+#define PIC_CASCADE_IRQ2      0x04   /* Master: slave is on IRQ2 (bit 2) */
+#define PIC_SLAVE_CASCADE_ID  0x02   /* Slave: cascade identity = 2      */
+
+/* Mask all IRQs */
+#define PIC_ALL_IRQS_MASKED   0xFF
+
+/* PIT command byte fields (bits: channel[7:6] access[5:4] mode[3:1] bcd[0]) */
+#define PIT_CMD_CH0_RATE_GEN  0x34   /* Ch0, lo/hi byte, mode 2 (rate generator) */
+#define PIT_CMD_CH0_ONESHOT   0x30   /* Ch0, lo/hi byte, mode 0 (one-shot)       */
+
 /* ── PIC initialization ─────────────────────────────────────── */
 
 void pic_init(void) {
@@ -40,16 +51,16 @@ void pic_init(void) {
     outb(PIC2_DATA, PIC_IRQ_BASE_SLAVE);  io_wait();  /* Slave:  IRQ 8-15 → 0x28-0x2F */
 
     /* ICW3: Cascade wiring */
-    outb(PIC1_DATA, 0x04); io_wait();  /* Master: slave on IRQ2 (bit 2) */
-    outb(PIC2_DATA, 0x02); io_wait();  /* Slave:  cascade identity = 2 */
+    outb(PIC1_DATA, PIC_CASCADE_IRQ2);     io_wait();  /* Master: slave on IRQ2 */
+    outb(PIC2_DATA, PIC_SLAVE_CASCADE_ID); io_wait();  /* Slave: identity = 2   */
 
     /* ICW4: 8086 mode */
     outb(PIC1_DATA, ICW4_8086); io_wait();
     outb(PIC2_DATA, ICW4_8086); io_wait();
 
     /* Mask ALL IRQs initially — we unmask individually as needed */
-    outb(PIC1_DATA, 0xFF);
-    outb(PIC2_DATA, 0xFF);
+    outb(PIC1_DATA, PIC_ALL_IRQS_MASKED);
+    outb(PIC2_DATA, PIC_ALL_IRQS_MASKED);
 }
 
 void pic_eoi(uint8_t irq) {
@@ -109,7 +120,7 @@ void pit_init(uint32_t frequency_hz) {
     uint16_t divisor = (uint16_t)(PIT_BASE_FREQ / frequency_hz);
 
     /* Channel 0, Access: lobyte/hibyte, Mode 2 (rate generator) */
-    outb(PIT_CMD, 0x34);
+    outb(PIT_CMD, PIT_CMD_CH0_RATE_GEN);
     outb(PIT_CHANNEL0, (uint8_t)(divisor & 0xFF));
     outb(PIT_CHANNEL0, (uint8_t)((divisor >> 8) & 0xFF));
     pit_oneshot_mode = 0;
@@ -131,7 +142,7 @@ void pit_set_oneshot(uint32_t ticks) {
     if (ticks > 65535) ticks = 65535;
 
     /* Channel 0, Access: lobyte/hibyte, Mode 0 (one-shot) */
-    outb(PIT_CMD, 0x30);
+    outb(PIT_CMD, PIT_CMD_CH0_ONESHOT);
     outb(PIT_CHANNEL0, (uint8_t)(ticks & 0xFF));
     outb(PIT_CHANNEL0, (uint8_t)((ticks >> 8) & 0xFF));
     pit_oneshot_mode = 1;
@@ -140,7 +151,7 @@ void pit_set_oneshot(uint32_t ticks) {
 void pit_stop(void) {
     /* Program PIT with max count in one-shot mode — effectively stopped.
      * The CPU will only wake on keyboard/external IRQs. */
-    outb(PIT_CMD, 0x30);
+    outb(PIT_CMD, PIT_CMD_CH0_ONESHOT);
     outb(PIT_CHANNEL0, 0xFF);
     outb(PIT_CHANNEL0, 0xFF);
     pit_oneshot_mode = 2;
