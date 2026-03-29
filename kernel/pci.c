@@ -17,6 +17,11 @@
 /* Header type bit 7: multi-function device */
 #define PCI_HEADER_MULTIFUNC  0x80
 
+/* PCI topology limits */
+#define PCI_MAX_BUS       256
+#define PCI_MAX_DEVICE    32
+#define PCI_MAX_FUNCTION  8
+
 /* ── Lectura/escritura PCI config space ─────────────────────────── */
 
 uint32_t pci_read32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset) {
@@ -44,9 +49,9 @@ void pci_write32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset, uint32_
 int pci_find_device(uint8_t class_code, uint8_t subclass, uint8_t prog_if,
                     struct pci_device *out) {
     /* Escaneo brute-force: bus 0-255, device 0-31, function 0-7 */
-    for (uint32_t bus = 0; bus < 256; bus++) {
-        for (uint8_t dev = 0; dev < 32; dev++) {
-            for (uint8_t func = 0; func < 8; func++) {
+    for (uint32_t bus = 0; bus < PCI_MAX_BUS; bus++) {
+        for (uint8_t dev = 0; dev < PCI_MAX_DEVICE; dev++) {
+            for (uint8_t func = 0; func < PCI_MAX_FUNCTION; func++) {
                 uint16_t vendor = pci_read16((uint8_t)bus, dev, func, PCI_VENDOR_ID);
                 if (vendor == PCI_VENDOR_INVALID || vendor == 0x0000) {
                     if (func == 0) break;  /* No hay device, saltar al siguiente */
@@ -96,9 +101,9 @@ void pci_enumerate(void) {
     kprintf("\n--- PCI Device Enumeration ---\n");
     uint32_t count = 0;
 
-    for (uint32_t bus = 0; bus < 256; bus++) {
-        for (uint8_t dev = 0; dev < 32; dev++) {
-            for (uint8_t func = 0; func < 8; func++) {
+    for (uint32_t bus = 0; bus < PCI_MAX_BUS; bus++) {
+        for (uint8_t dev = 0; dev < PCI_MAX_DEVICE; dev++) {
+            for (uint8_t func = 0; func < PCI_MAX_FUNCTION; func++) {
                 uint16_t vendor = pci_read16((uint8_t)bus, dev, func, PCI_VENDOR_ID);
                 if (vendor == PCI_VENDOR_INVALID || vendor == 0x0000) {
                     if (func == 0) break;
