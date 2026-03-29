@@ -3,6 +3,11 @@
 ## En curso
 - [2026-03-29] | Heartbeat maintenance: 7 fixes + 3 cleanup items across pmm, msgqueue, ramdisk, ext2, vfs, pic, idt, repo | 100%
 
+## Sesion 2026-03-29 (heartbeat pass 4)
+- refactor(kernel): move mid-file #includes to top in kprintf.c, main.c, tests.c | 284539d
+- fix(ext2): remove redundant superblock size check in ext2_init | 26b49ea
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
+
 ## Sesion 2026-03-29 (heartbeat pass 3)
 - fix(sched): add missing panic.h include — KASSERT was undeclared, breaking build | db3bc1c
 - refactor(kernel): normalize limine.h include paths in pmm.c, ramdisk.c, main.c | ce1d9eb
