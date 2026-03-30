@@ -1,7 +1,13 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
-- [2026-03-29] | Heartbeat maintenance: continued dead code removal + magic number cleanup | 100%
+- [2026-03-30] | Heartbeat maintenance: magic number cleanup in tlb, runtime_tests, kmalloc | 100%
+
+## Sesion 2026-03-30 (heartbeat pass 9)
+- refactor(tlb): define TLB_SHOOTDOWN_TIMEOUT constant for busy-wait limit | 2d367bc
+- refactor(runtime_tests): define named constants for timer accuracy tolerance bounds | b41d834
+- refactor(kmalloc): define SLAB_MAX_SIZE constant instead of magic 2048 | b3ad2bd
+- Build: pre-existing failure (missing limine.h dependency), Tests: 29/29 passing (unchanged)
 
 ## Sesion 2026-03-29 (heartbeat pass 8)
 - refactor(lapic): remove write-only lapic_timer_freq variable (dead code) | 6726f47
