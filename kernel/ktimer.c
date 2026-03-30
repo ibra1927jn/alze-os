@@ -19,9 +19,6 @@
 
 /* ── Timer wheel state ───────────────────────────────────────── */
 
-/* At 100 Hz, each PIT tick is 10 ms */
-#define TIMER_TICK_MS  10
-
 static struct list_head timer_wheel[TIMER_WHEEL_SIZE];
 static spinlock_t timer_lock = SPINLOCK_INIT;
 static uint32_t active_timers = 0;

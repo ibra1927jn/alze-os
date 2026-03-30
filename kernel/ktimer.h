@@ -38,6 +38,11 @@ struct ktimer {
     bool             active;     /* Is this timer pending? */
 };
 
+/* ── Tick rate ──────────────────────────────────────────────── */
+
+/* At 100 Hz PIT, each tick is 10 ms */
+#define TIMER_TICK_MS     10
+
 /* ── Timer wheel (256 slots, ~2.5 seconds at 100 Hz) ────────── */
 
 #define TIMER_WHEEL_SIZE  256
