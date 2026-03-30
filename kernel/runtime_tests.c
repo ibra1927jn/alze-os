@@ -17,6 +17,11 @@
 
 /* ── Stress test ─────────────────────────────────────────────── */
 
+/* Timer accuracy: expected 200ms sleep, tolerance window in ms */
+#define TIMER_EXPECTED_MS   200
+#define TIMER_TOLERANCE_LO  190
+#define TIMER_TOLERANCE_HI  250
+
 #define STRESS_THREADS   10
 #define STRESS_ITERS     10000
 #define STRESS_EXPECTED  (STRESS_THREADS * STRESS_ITERS)
@@ -120,10 +125,10 @@ void run_runtime_tests(void) {
     int tt = task_create("timer-test", timer_test_fn);
     task_join((uint32_t)tt);
     uint64_t sleep_ms = (sleep_end_tick - sleep_start_tick) * 10;
-    if (sleep_ms >= 190 && sleep_ms <= 250)
-        LOG_OK("Timer PASSED: sleep(200ms) = %lu ms", sleep_ms);
+    if (sleep_ms >= TIMER_TOLERANCE_LO && sleep_ms <= TIMER_TOLERANCE_HI)
+        LOG_OK("Timer PASSED: sleep(%dms) = %lu ms", TIMER_EXPECTED_MS, sleep_ms);
     else
-        LOG_ERROR("Timer FAILED: sleep(200ms) = %lu ms", sleep_ms);
+        LOG_ERROR("Timer FAILED: sleep(%dms) = %lu ms", TIMER_EXPECTED_MS, sleep_ms);
 
     /* ══ TEST 5: Memory leak check ══════════════════════════════ */
     kprintf("\n--- [TEST 5] Memory leak check ---\n");
