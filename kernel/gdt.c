@@ -17,6 +17,7 @@
  */
 
 #include "gdt.h"
+#include "string.h"
 
 /* ── GDT entry structure ──────────────────────────────────────── */
 
@@ -114,9 +115,7 @@ static void gdt_set_tss(int idx, struct tss *tss_ptr) {
 
 void gdt_init(void) {
     /* Initialize TSS to zero */
-    for (int i = 0; i < (int)sizeof(tss_instance); i++) {
-        ((uint8_t *)&tss_instance)[i] = 0;
-    }
+    memset(&tss_instance, 0, sizeof(tss_instance));
 
     /* RSP0: top of kernel stack (stack grows down) */
     tss_instance.rsp0 = (uint64_t)(temp_rsp0_stack + sizeof(temp_rsp0_stack));
