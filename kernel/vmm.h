@@ -34,6 +34,15 @@
 #define VMM_FLAGS_KERNEL_RW   (PTE_PRESENT | PTE_WRITE | PTE_GLOBAL | PTE_NX)
 #define VMM_FLAGS_HHDM        (PTE_PRESENT | PTE_WRITE | PTE_GLOBAL | PTE_NX)
 
+/* ── Paging structure constants ──────────────────────────────── */
+
+#define PAGE_TABLE_ENTRIES  512  /* Entries per paging level (2^9) */
+
+/* Offset masks for extracting intra-page offset at each level */
+#define PAGE_OFFSET_4KB   0xFFFUL         /* 4KB page offset (bits 0-11)  */
+#define PAGE_OFFSET_2MB   0x1FFFFFUL      /* 2MB page offset (bits 0-20)  */
+#define PAGE_OFFSET_1GB   0x3FFFFFFFUL    /* 1GB page offset (bits 0-29)  */
+
 /* ── Paging structure indices ────────────────────────────────── */
 
 #define PML4_INDEX(va) (((va) >> 39) & 0x1FF)

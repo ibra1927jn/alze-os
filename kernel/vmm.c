@@ -232,7 +232,7 @@ uint64_t vmm_virt_to_phys(uint64_t virt) {
 
     /* Pagina enorme 1GB (improbable pero posible) */
     if (pdpt[PDPT_INDEX(virt)] & PTE_HUGE) {
-        result = (pdpt[PDPT_INDEX(virt)] & PTE_ADDR_MASK) | (virt & 0x3FFFFFFF);
+        result = (pdpt[PDPT_INDEX(virt)] & PTE_ADDR_MASK) | (virt & PAGE_OFFSET_1GB);
         goto out;
     }
 
@@ -241,14 +241,14 @@ uint64_t vmm_virt_to_phys(uint64_t virt) {
 
     /* Pagina enorme 2MB */
     if (pd[PD_INDEX(virt)] & PTE_HUGE) {
-        result = (pd[PD_INDEX(virt)] & PTE_ADDR_MASK) | (virt & 0x1FFFFF);
+        result = (pd[PD_INDEX(virt)] & PTE_ADDR_MASK) | (virt & PAGE_OFFSET_2MB);
         goto out;
     }
 
     uint64_t *pt = (uint64_t *)PHYS2VIRT(pte_to_phys(pd[PD_INDEX(virt)]));
     if (!(pt[PT_INDEX(virt)] & PTE_PRESENT)) goto out;
 
-    result = (pt[PT_INDEX(virt)] & PTE_ADDR_MASK) | (virt & 0xFFF);
+    result = (pt[PT_INDEX(virt)] & PTE_ADDR_MASK) | (virt & PAGE_OFFSET_4KB);
 
 out:
     spin_unlock_irqrestore(&vmm_lock, irq_flags);
@@ -563,22 +563,22 @@ void vmm_dump_tables(void) {
     uint64_t *pml4 = (uint64_t *)PHYS2VIRT(pml4_phys);
     uint32_t mapped_4k = 0, mapped_2m = 0;
 
-    for (int i = 0; i < 512; i++) {
+    for (int i = 0; i < PAGE_TABLE_ENTRIES; i++) {
         if (!(pml4[i] & PTE_PRESENT)) continue;
         uint64_t *pdpt = (uint64_t *)PHYS2VIRT(pte_to_phys(pml4[i]));
 
-        for (int j = 0; j < 512; j++) {
+        for (int j = 0; j < PAGE_TABLE_ENTRIES; j++) {
             if (!(pdpt[j] & PTE_PRESENT)) continue;
             if (pdpt[j] & PTE_HUGE) continue;  /* 1GB page */
 
             uint64_t *pd = (uint64_t *)PHYS2VIRT(pte_to_phys(pdpt[j]));
-            for (int k = 0; k < 512; k++) {
+            for (int k = 0; k < PAGE_TABLE_ENTRIES; k++) {
                 if (!(pd[k] & PTE_PRESENT)) continue;
                 if (pd[k] & PTE_HUGE) {
                     mapped_2m++;
                 } else {
                     uint64_t *pt = (uint64_t *)PHYS2VIRT(pte_to_phys(pd[k]));
-                    for (int l = 0; l < 512; l++) {
+                    for (int l = 0; l < PAGE_TABLE_ENTRIES; l++) {
                         if (pt[l] & PTE_PRESENT) mapped_4k++;
                     }
                 }
@@ -604,16 +604,16 @@ uint32_t vmm_audit_wx(void) {
     uint32_t violations = 0;
     uint64_t *pml4 = (uint64_t *)PHYS2VIRT(pml4_phys);
 
-    for (int i = 0; i < 512; i++) {
+    for (int i = 0; i < PAGE_TABLE_ENTRIES; i++) {
         if (!(pml4[i] & PTE_PRESENT)) continue;
         uint64_t *pdpt = (uint64_t *)PHYS2VIRT(pte_to_phys(pml4[i]));
 
-        for (int j = 0; j < 512; j++) {
+        for (int j = 0; j < PAGE_TABLE_ENTRIES; j++) {
             if (!(pdpt[j] & PTE_PRESENT)) continue;
             if (pdpt[j] & PTE_HUGE) continue;
 
             uint64_t *pd = (uint64_t *)PHYS2VIRT(pte_to_phys(pdpt[j]));
-            for (int k = 0; k < 512; k++) {
+            for (int k = 0; k < PAGE_TABLE_ENTRIES; k++) {
                 if (!(pd[k] & PTE_PRESENT)) continue;
                 if (pd[k] & PTE_HUGE) {
                     /* 2MB page: check W^X */
@@ -624,7 +624,7 @@ uint32_t vmm_audit_wx(void) {
                 }
 
                 uint64_t *pt = (uint64_t *)PHYS2VIRT(pte_to_phys(pd[k]));
-                for (int l = 0; l < 512; l++) {
+                for (int l = 0; l < PAGE_TABLE_ENTRIES; l++) {
                     if (!(pt[l] & PTE_PRESENT)) continue;
                     /* W^X: both Writable AND Executable = violation */
                     if ((pt[l] & PTE_WRITE) && !(pt[l] & PTE_NX)) {
