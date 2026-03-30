@@ -21,6 +21,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/* RFLAGS bit 9: Interrupt Enable Flag */
+#define RFLAGS_IF  (1UL << 9)
+
 typedef struct {
     volatile uint16_t next_ticket;
     volatile uint16_t serving_ticket;
@@ -85,7 +88,7 @@ static inline void spin_lock_irqsave(spinlock_t *lock, uint64_t *flags) {
  */
 static inline void spin_unlock_irqrestore(spinlock_t *lock, uint64_t flags) {
     spin_unlock(lock);
-    if (flags & (1UL << 9)) {   /* RFLAGS bit 9 = IF (Interrupt Flag) */
+    if (flags & RFLAGS_IF) {
         asm volatile("sti");
     }
 }
