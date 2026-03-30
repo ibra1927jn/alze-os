@@ -1,7 +1,14 @@
 # PROGRESS.md — Project Status
 
 ## In progress
-- [2026-03-30] | Heartbeat maintenance: pass 16 final Spanish comment cleanup | 100%
+- [2026-03-30] | Heartbeat maintenance: pass 17 cleanup | 100%
+
+## Session 2026-03-30 (heartbeat pass 17)
+- refactor(main): translate last 3 Spanish comments to English in main.c | 3b5f780
+- refactor(vmm,xhci): remove unused string.h includes | afcb9dc
+- refactor(interrupts,mutex): translate remaining Spanish comments in asm/mutex | b701bd2
+- docs(errores): translate all 24 error log entries from Spanish to English | 5bb0088
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Session 2026-03-30 (heartbeat pass 16)
 - refactor(pci,pmm): translate remaining Spanish comments to English | e60b91a
