@@ -92,7 +92,7 @@ isr_stub_253:
     push    qword 0          ; dummy error code
     push    qword 253        ; vector number
 
-    ;; Guardar todos los registros de proposito general
+    ;; Save all general-purpose registers
     push    rax
     push    rbx
     push    rcx
@@ -109,10 +109,10 @@ isr_stub_253:
     push    r14
     push    r15
 
-    ;; Llamar al handler C del timer LAPIC
+    ;; Call the LAPIC timer C handler
     call    lapic_timer_handler_c
 
-    ;; Restaurar todos los registros
+    ;; Restore all registers
     pop     r15
     pop     r14
     pop     r13
@@ -129,15 +129,15 @@ isr_stub_253:
     pop     rbx
     pop     rax
 
-    ;; Remover vector y error code del stack
+    ;; Remove vector and error code from stack
     add     rsp, 16
 
     iretq
 
 ;; ── TLB Shootdown IPI stub (vector 0xFE = 254) ─────────────────
-;; Este vector lo envia el LAPIC desde otra CPU para invalidar TLB.
-;; No viene del PIC asi que el EOI va al LAPIC, no al 8259A.
-;; El handler C (tlb_shootdown_ipi_handler) llama lapic_eoi().
+;; This vector is sent by the LAPIC from another CPU to invalidate TLB.
+;; It does not come from the PIC, so EOI goes to the LAPIC, not the 8259A.
+;; The C handler (tlb_shootdown_ipi_handler) calls lapic_eoi().
 
 extern tlb_shootdown_ipi_handler
 
@@ -146,7 +146,7 @@ isr_stub_254:
     push    qword 0          ; dummy error code
     push    qword 254        ; vector number
 
-    ;; Guardar todos los registros de proposito general
+    ;; Save all general-purpose registers
     push    rax
     push    rbx
     push    rcx
@@ -163,10 +163,10 @@ isr_stub_254:
     push    r14
     push    r15
 
-    ;; Llamar al handler C que ejecuta invlpg + ack + lapic_eoi()
+    ;; Call the C handler that runs invlpg + ack + lapic_eoi()
     call    tlb_shootdown_ipi_handler
 
-    ;; Restaurar todos los registros
+    ;; Restore all registers
     pop     r15
     pop     r14
     pop     r13
@@ -183,7 +183,7 @@ isr_stub_254:
     pop     rbx
     pop     rax
 
-    ;; Remover vector y error code del stack
+    ;; Remove vector and error code from stack
     add     rsp, 16
 
     iretq
