@@ -35,6 +35,10 @@
 /* Mask all IRQs */
 #define PIC_ALL_IRQS_MASKED   0xFF
 
+/* Number of IRQ lines per PIC chip and total */
+#define PIC_IRQS_PER_CHIP  8
+#define PIC_TOTAL_IRQS     16
+
 /* PIT command byte fields (bits: channel[7:6] access[5:4] mode[3:1] bcd[0]) */
 #define PIT_CMD_CH0_RATE_GEN  0x34   /* Ch0, lo/hi byte, mode 2 (rate generator) */
 #define PIT_CMD_CH0_ONESHOT   0x30   /* Ch0, lo/hi byte, mode 0 (one-shot)       */
@@ -69,7 +73,7 @@ void pic_init(void) {
 }
 
 void pic_eoi(uint8_t irq) {
-    if (irq >= 8) {
+    if (irq >= PIC_IRQS_PER_CHIP) {
         outb(PIC2_CMD, PIC_EOI);  /* Slave PIC */
     }
     outb(PIC1_CMD, PIC_EOI);      /* Always send to master */
@@ -77,11 +81,11 @@ void pic_eoi(uint8_t irq) {
 
 void pic_unmask(uint8_t irq) {
     uint16_t port;
-    if (irq < 8) {
+    if (irq < PIC_IRQS_PER_CHIP) {
         port = PIC1_DATA;
     } else {
         port = PIC2_DATA;
-        irq -= 8;
+        irq -= PIC_IRQS_PER_CHIP;
     }
     uint8_t mask = inb(port);
     mask &= ~(1 << irq);
@@ -90,11 +94,11 @@ void pic_unmask(uint8_t irq) {
 
 void pic_mask(uint8_t irq) {
     uint16_t port;
-    if (irq < 8) {
+    if (irq < PIC_IRQS_PER_CHIP) {
         port = PIC1_DATA;
     } else {
         port = PIC2_DATA;
-        irq -= 8;
+        irq -= PIC_IRQS_PER_CHIP;
     }
     uint8_t mask = inb(port);
     mask |= (1 << irq);
@@ -205,10 +209,10 @@ void pit_tick(void) {
 
 /* ── Dynamic IRQ handlers ────────────────────────────────────── */
 
-static irq_handler_fn irq_handlers[16] = {0};
+static irq_handler_fn irq_handlers[PIC_TOTAL_IRQS] = {0};
 
 irq_handler_fn irq_register(uint8_t irq, irq_handler_fn handler) {
-    if (irq >= 16) return (irq_handler_fn)0;
+    if (irq >= PIC_TOTAL_IRQS) return (irq_handler_fn)0;
     irq_handler_fn prev = irq_handlers[irq];
     irq_handlers[irq] = handler;
     return prev;
@@ -216,7 +220,7 @@ irq_handler_fn irq_register(uint8_t irq, irq_handler_fn handler) {
 
 /* Called from idt.c irq_handler_c for non-timer/keyboard IRQs */
 void irq_dispatch(uint8_t irq) {
-    if (irq < 16 && irq_handlers[irq]) {
+    if (irq < PIC_TOTAL_IRQS && irq_handlers[irq]) {
         irq_handlers[irq](irq);
     }
 }
