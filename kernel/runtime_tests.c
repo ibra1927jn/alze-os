@@ -22,9 +22,10 @@
 #define TIMER_TOLERANCE_LO  190
 #define TIMER_TOLERANCE_HI  250
 
-#define STRESS_THREADS   10
-#define STRESS_ITERS     10000
-#define STRESS_EXPECTED  (STRESS_THREADS * STRESS_ITERS)
+#define STRESS_THREADS        10
+#define STRESS_ITERS          10000
+#define STRESS_YIELD_INTERVAL 1000
+#define STRESS_EXPECTED       (STRESS_THREADS * STRESS_ITERS)
 static volatile uint64_t shared_counter = 0;
 static spinlock_t counter_lock = SPINLOCK_INIT;
 
@@ -34,7 +35,7 @@ static void stress_thread_fn(void) {
         spin_lock_irqsave(&counter_lock, &flags);
         shared_counter++;
         spin_unlock_irqrestore(&counter_lock, flags);
-        if (i % 1000 == 0) sched_yield();
+        if (i % STRESS_YIELD_INTERVAL == 0) sched_yield();
     }
 }
 
@@ -56,9 +57,10 @@ static void bench_ping_fn(void) {
 /* ── IPC benchmark ───────────────────────────────────────────── */
 
 static struct msg_queue bench_mq;
-#define IPC_MSGS 500
+#define IPC_MSGS          500
+#define IPC_TEST_MESSAGE  0xCAFE
 static void ipc_sender_fn(void) {
-    uint32_t msg = 0xCAFE;
+    uint32_t msg = IPC_TEST_MESSAGE;
     for (int i = 0; i < IPC_MSGS; i++) mq_send(&bench_mq, &msg, sizeof(msg));
 }
 static void ipc_receiver_fn(void) {
