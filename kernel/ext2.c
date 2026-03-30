@@ -59,7 +59,8 @@ int ext2_init(void *ramdisk_base, uint64_t ramdisk_size) {
     }
 
     /* Calcular tamano de bloque (valid range: 0-6, i.e. 1K-64K) */
-    if (fs.sb.s_log_block_size > 6) {
+    #define EXT2_MAX_LOG_BLOCK_SIZE  6  /* max shift: 1024 << 6 = 64KB */
+    if (fs.sb.s_log_block_size > EXT2_MAX_LOG_BLOCK_SIZE) {
         LOG_ERROR("ext2: invalid s_log_block_size %u", fs.sb.s_log_block_size);
         return -EINVAL;
     }
@@ -79,11 +80,13 @@ int ext2_init(void *ramdisk_base, uint64_t ramdisk_size) {
     /* La GDT esta en el bloque siguiente al superblock.
      * Si block_size == 1024, superblock esta en bloque 1, GDT en bloque 2.
      * Si block_size >= 2048, superblock esta en bloque 0 (offset 1024), GDT en bloque 1. */
+    #define EXT2_GDT_BLOCK_1K   2   /* GDT block when block_size == 1024 */
+    #define EXT2_GDT_BLOCK_LARGE 1  /* GDT block when block_size >= 2048 */
     uint32_t gdt_block;
     if (fs.block_size == EXT2_BASE_BLOCK_SIZE) {
-        gdt_block = 2;
+        gdt_block = EXT2_GDT_BLOCK_1K;
     } else {
-        gdt_block = 1;
+        gdt_block = EXT2_GDT_BLOCK_LARGE;
     }
 
     fs.gdt = (struct ext2_group_desc *)ext2_block_ptr(gdt_block);
