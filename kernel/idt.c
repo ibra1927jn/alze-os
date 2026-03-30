@@ -18,6 +18,8 @@
 #include "sched.h"
 #include "ktimer.h"
 #include "watchdog.h"
+#include "lapic.h"
+#include "tlb_shootdown.h"
 #include <stdint.h>
 
 /* x86 exception vector numbers */
@@ -205,12 +207,12 @@ void idt_init(void) {
     idt_set_gate(16, isr_stub_16, 0);  /* #MF — x87 FP error */
 
     /* Hardware IRQs (remapped by PIC to 0x20+) */
-    idt_set_gate(32, isr_stub_32, 0);  /* IRQ0: Timer */
-    idt_set_gate(33, isr_stub_33, 0);  /* IRQ1: Keyboard */
+    idt_set_gate(IRQ_VECTOR(IRQ_TIMER), isr_stub_32, 0);     /* IRQ0: Timer */
+    idt_set_gate(IRQ_VECTOR(IRQ_KEYBOARD), isr_stub_33, 0);  /* IRQ1: Keyboard */
 
     /* LAPIC vectors (fuera del rango PIC) */
-    idt_set_gate(253, isr_stub_253, 0);  /* LAPIC Timer (0xFD) */
-    idt_set_gate(254, isr_stub_254, 0);  /* TLB Shootdown IPI (0xFE) */
+    idt_set_gate(LAPIC_TIMER_VECTOR, isr_stub_253, 0);    /* LAPIC Timer */
+    idt_set_gate(IPI_TLB_SHOOTDOWN, isr_stub_254, 0);     /* TLB Shootdown IPI */
 
     idtr.limit = sizeof(idt) - 1;
     idtr.base  = (uint64_t)&idt;
