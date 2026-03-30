@@ -1,7 +1,16 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
-- [2026-03-30] | Heartbeat maintenance: pass 14 PCI bug fix + refactoring | 100%
+- [2026-03-30] | Heartbeat maintenance: pass 15 comment translation to English | 100%
+
+## Sesion 2026-03-30 (heartbeat pass 15)
+- refactor(kernel): translate Spanish comments to English in 8 core files (klog, lapic, pmm, ramdisk, sched, string, tlb_shootdown, vmm) | 6fdf1c9
+- refactor(kernel): translate Spanish comments to English in 5 header files (ext2.h, ramdisk.h, lapic.h, pci.h, tlb_shootdown.h) | 806f2d1
+- refactor(ext2,lapic): translate Spanish comments to English in ext2.c and lapic.c | af93e5f
+- refactor(idt): translate remaining Spanish comment to English | c0cd2e1
+- Also extracted KLOG_BUFFER_SIZE named constant in klog.c
+- ~140 Spanish comments translated across 16 files total
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Sesion 2026-03-30 (heartbeat pass 14)
 - fix(pci): use 16-bit write for PCI command register, add pci_write16/pci_write8 | f072d51
