@@ -266,9 +266,9 @@ void vmm_map_range(uint64_t virt, uint64_t phys, uint64_t size, uint64_t flags) 
 /* ── Bulk: Map a range using 2MB huge pages ───────────────────── */
 
 void vmm_map_range_huge(uint64_t virt, uint64_t phys, uint64_t size, uint64_t flags) {
-    KASSERT((virt & 0x1FFFFF) == 0);  /* Debe ser alineado a 2MB */
-    KASSERT((phys & 0x1FFFFF) == 0);
-    KASSERT((size & 0x1FFFFF) == 0);
+    KASSERT((virt & PAGE_OFFSET_2MB) == 0);  /* Must be 2MB-aligned */
+    KASSERT((phys & PAGE_OFFSET_2MB) == 0);
+    KASSERT((size & PAGE_OFFSET_2MB) == 0);
 
     uint64_t irq_flags;
     spin_lock_irqsave(&vmm_lock, &irq_flags);
