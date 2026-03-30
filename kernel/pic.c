@@ -41,6 +41,8 @@
 
 /* PIT 16-bit counter maximum value */
 #define PIT_MAX_COUNT         65535  /* 16-bit max (~55ms at 1.193MHz)            */
+#define PIT_MAX_COUNT_LO      0xFF   /* Low byte of max count for stop mode       */
+#define PIT_MAX_COUNT_HI      0xFF   /* High byte of max count for stop mode      */
 
 /* ── PIC initialization ─────────────────────────────────────── */
 
@@ -155,8 +157,8 @@ void pit_stop(void) {
     /* Program PIT with max count in one-shot mode — effectively stopped.
      * The CPU will only wake on keyboard/external IRQs. */
     outb(PIT_CMD, PIT_CMD_CH0_ONESHOT);
-    outb(PIT_CHANNEL0, 0xFF);
-    outb(PIT_CHANNEL0, 0xFF);
+    outb(PIT_CHANNEL0, PIT_MAX_COUNT_LO);
+    outb(PIT_CHANNEL0, PIT_MAX_COUNT_HI);
     pit_oneshot_mode = 2;
 }
 

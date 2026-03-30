@@ -49,6 +49,10 @@
 /* Timeout for TX polling — prevents deadlock on missing hardware */
 #define UART_TIMEOUT 100000
 
+/* Scratch register offset and test value for hardware detection */
+#define REG_SCRATCH         (COM1_BASE + 7)
+#define UART_SCRATCH_TEST   0xAE
+
 /* Hardware presence flag */
 static int uart_available = 0;
 
@@ -58,8 +62,8 @@ void uart_init(void) {
     /* Detect if COM1 hardware exists:
      * Write a known value to the scratch register and read it back.
      * If the value matches, hardware is present. */
-    outb(COM1_BASE + 7, 0xAE);  /* Scratch register at base+7 */
-    if (inb(COM1_BASE + 7) != 0xAE) {
+    outb(REG_SCRATCH, UART_SCRATCH_TEST);
+    if (inb(REG_SCRATCH) != UART_SCRATCH_TEST) {
         uart_available = 0;
         return;  /* No serial hardware — all uart_put* become no-ops */
     }

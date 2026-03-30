@@ -26,6 +26,12 @@ static uint32_t rows = 0;      /* max rows */
 #define FONT_W 8
 #define FONT_H 16
 
+/* ── ASCII constants ────────────────────────────────────────── */
+#define ASCII_PRINTABLE_FIRST   32   /* Space — first printable char    */
+#define ASCII_PRINTABLE_LAST   126   /* '~' — last printable char       */
+#define ASCII_PRINTABLE_COUNT   (ASCII_PRINTABLE_LAST - ASCII_PRINTABLE_FIRST + 1)  /* 95 */
+#define ASCII_ESC              0x1B  /* Escape character                */
+
 /* ── Color palette (ARGB32) ──────────────────────────────────── */
 #define COL_BG       0x00101010  /* Near-black background */
 #define COL_WHITE    0x00E0E0E0  /* Light gray (default fg)  */
@@ -53,8 +59,8 @@ static int  ansi_param = 0;
 /* ── Internal: draw a glyph at pixel position ────────────────── */
 
 static inline void draw_glyph(uint32_t px, uint32_t py, char c) {
-    int idx = (int)c - 32;
-    if (idx < 0 || idx >= 95) idx = 0; /* fallback to space */
+    int idx = (int)c - ASCII_PRINTABLE_FIRST;
+    if (idx < 0 || idx >= ASCII_PRINTABLE_COUNT) idx = 0; /* fallback to space */
 
     const uint8_t *glyph = font_data[idx];
     uint32_t ppitch = fb_pitch / 4;  /* pitch in uint32_t */
@@ -160,7 +166,7 @@ void console_putchar(char c) {
         return;
     }
 
-    if (c == 0x1B) {  /* ESC */
+    if (c == ASCII_ESC) {
         ansi_state = ANSI_STATE_ESC;
         return;
     }
@@ -177,7 +183,7 @@ void console_putchar(char c) {
         }
     } else if (c == '\t') {
         cursor_x = (cursor_x + 4) & ~3;
-    } else if (c >= 32 && c < 127) {
+    } else if (c >= ASCII_PRINTABLE_FIRST && c <= ASCII_PRINTABLE_LAST) {
         draw_glyph(cursor_x * FONT_W, cursor_y * FONT_H, c);
         cursor_x++;
     }
