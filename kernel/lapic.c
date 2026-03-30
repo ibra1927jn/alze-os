@@ -154,7 +154,8 @@ static uint32_t lapic_calibrate_timer(void) {
      *
      * PIT freq = 1193182 Hz → ~10ms = 11932 ticks
      */
-    #define CALIBRATION_PIT_TICKS   11932   /* ~10ms a 1.193182 MHz */
+    #define CALIBRATION_MS          10
+    #define CALIBRATION_PIT_TICKS   ((uint16_t)(PIT_BASE_FREQ * CALIBRATION_MS / 1000))
 
     /* Deshabilitar speaker, habilitar gate para channel 2 */
     uint8_t gate = inb(PORT_SPEAKER_GATE);
