@@ -116,7 +116,7 @@ struct ext2_dir_entry {
     uint16_t rec_len;         /* Total length of this entry */
     uint8_t  name_len;
     uint8_t  file_type;
-    char     name[];          /* Nombre (NO null-terminated en disco) */
+    char     name[];          /* Name (NOT null-terminated on disk) */
 } __attribute__((packed));
 
 /* file_type values */
