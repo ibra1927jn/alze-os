@@ -37,6 +37,11 @@ static const char sc_upper[128] = {
     0,   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0, 0
 };
 
+/* PS/2 keyboard controller ports */
+#define KB_DATA_PORT   0x60  /* Read scancode / write command data */
+#define KB_STATUS_PORT 0x64  /* Read status / write command */
+#define KB_STATUS_OBF  0x01  /* Output Buffer Full bit in status register */
+
 /* Modifier scancodes */
 #define SC_LSHIFT_PRESS   0x2A
 #define SC_RSHIFT_PRESS   0x36
@@ -67,15 +72,15 @@ static void kb_buf_push(char c) {
 
 void kb_init(void) {
     /* Flush any pending scancodes */
-    while (inb(0x64) & 0x01) {
-        inb(0x60);
+    while (inb(KB_STATUS_PORT) & KB_STATUS_OBF) {
+        inb(KB_DATA_PORT);
     }
     pic_unmask(IRQ_KEYBOARD);
     LOG_OK("Keyboard initialized (PS/2, Set 1, Shift+CapsLock)");
 }
 
 void kb_irq_handler(void) {
-    uint8_t scancode = inb(0x60);
+    uint8_t scancode = inb(KB_DATA_PORT);
 
     /* Handle modifier keys */
     if (scancode == SC_LSHIFT_PRESS || scancode == SC_RSHIFT_PRESS) {
