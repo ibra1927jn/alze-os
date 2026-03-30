@@ -1,7 +1,14 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
-- [2026-03-30] | Heartbeat maintenance: pass 13 magic number cleanup | 100%
+- [2026-03-30] | Heartbeat maintenance: pass 14 PCI bug fix + refactoring | 100%
+
+## Sesion 2026-03-30 (heartbeat pass 14)
+- fix(pci): use 16-bit write for PCI command register, add pci_write16/pci_write8 | f072d51
+- refactor(vmm): use PAGE_OFFSET_2MB constant for 2MB alignment checks | 7001f3d
+- refactor(uart): define REG_RBR for receive buffer register reads | d4868a1
+- Moved PCI_CMD_* and PCI_BAR_* defines from xhci.c to pci.h (proper module boundary)
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Sesion 2026-03-30 (heartbeat pass 13)
 - refactor(ssp): replace magic numbers with named constants for canary and TSC mixing | 7870d33
