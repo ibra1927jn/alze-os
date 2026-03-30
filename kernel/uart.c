@@ -23,6 +23,7 @@
 #define COM1_BASE   0x3F8
 
 #define REG_THR     (COM1_BASE + 0)   /* Transmit Holding Register      */
+#define REG_RBR     (COM1_BASE + 0)   /* Receive Buffer Register        */
 #define REG_DLL     (COM1_BASE + 0)   /* Divisor Latch Low  (DLAB=1)    */
 #define REG_DLH     (COM1_BASE + 1)   /* Divisor Latch High (DLAB=1)    */
 #define REG_IER     (COM1_BASE + 1)   /* Interrupt Enable Register      */
@@ -140,6 +141,6 @@ int uart_data_ready(void) {
 
 char uart_getc(void) {
     if (!uart_data_ready()) return 0;
-    return (char)inb(COM1_BASE);  /* Read from RBR (same port as THR) */
+    return (char)inb(REG_RBR);
 }
 
