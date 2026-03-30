@@ -9,6 +9,19 @@
 #include <stdint.h>
 #include "panic.h"
 
+/* ── Constants ───────────────────────────────────────────────── */
+
+/* Default canary — replaced by RDTSC in ssp_init() */
+#define SSP_INITIAL_CANARY  0x595E9FBD94FDA766ULL
+
+/* xorshift mixing constants for RDTSC entropy distribution */
+#define SSP_MIX_SHIFT_R1    17
+#define SSP_MIX_SHIFT_L     13
+#define SSP_MIX_SHIFT_R2    7
+
+/* Mask to ensure at least one null byte (catches string overflows) */
+#define SSP_NULL_BYTE_MASK  0xFF
+
 /* ── Stack canary ─────────────────────────────────────────────── */
 
 /*
@@ -16,7 +29,7 @@
  * The compiler inserts this value at function entry and checks it
  * at function exit. If it changed, a stack buffer overflow occurred.
  */
-uintptr_t __stack_chk_guard = 0x595E9FBD94FDA766;
+uintptr_t __stack_chk_guard = SSP_INITIAL_CANARY;
 
 /* Read Time Stamp Counter for randomization */
 static inline uint64_t rdtsc(void) {
@@ -29,11 +42,11 @@ static inline uint64_t rdtsc(void) {
 void ssp_init(void) {
     uint64_t tsc = rdtsc();
     /* Mix bits for better entropy distribution */
-    tsc ^= (tsc >> 17);
-    tsc ^= (tsc << 13);
-    tsc ^= (tsc >> 7);
+    tsc ^= (tsc >> SSP_MIX_SHIFT_R1);
+    tsc ^= (tsc << SSP_MIX_SHIFT_L);
+    tsc ^= (tsc >> SSP_MIX_SHIFT_R2);
     /* Ensure at least one null byte to catch string overflows */
-    tsc &= ~(uint64_t)0xFF;
+    tsc &= ~(uint64_t)SSP_NULL_BYTE_MASK;
     __stack_chk_guard = tsc;
 }
 
