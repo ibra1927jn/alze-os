@@ -23,14 +23,16 @@ static uint32_t cursor_y = 0;  /* character row */
 static uint32_t cols = 0;      /* max columns */
 static uint32_t rows = 0;      /* max rows */
 
-#define FONT_W 8
-#define FONT_H 16
+#define FONT_W        8
+#define FONT_H        16
+#define GLYPH_MSB     0x80   /* MSB of glyph row byte (leftmost pixel) */
 
 /* ── ASCII constants ────────────────────────────────────────── */
 #define ASCII_PRINTABLE_FIRST   32   /* Space — first printable char    */
 #define ASCII_PRINTABLE_LAST   126   /* '~' — last printable char       */
 #define ASCII_PRINTABLE_COUNT   (ASCII_PRINTABLE_LAST - ASCII_PRINTABLE_FIRST + 1)  /* 95 */
 #define ASCII_ESC              0x1B  /* Escape character                */
+#define TAB_STOP               4     /* Tab stop width in characters    */
 
 /* ── Color palette (ARGB32) ──────────────────────────────────── */
 #define COL_BG       0x00101010  /* Near-black background */
@@ -69,7 +71,7 @@ static inline void draw_glyph(uint32_t px, uint32_t py, char c) {
         uint8_t row = glyph[y];
         uint32_t *line = fb + (py + y) * ppitch + px;
         for (int x = 0; x < FONT_W; x++) {
-            line[x] = (row & (0x80 >> x)) ? fg_color : COL_BG;
+            line[x] = (row & (GLYPH_MSB >> x)) ? fg_color : COL_BG;
         }
     }
 }
@@ -182,7 +184,7 @@ void console_putchar(char c) {
             draw_glyph(cursor_x * FONT_W, cursor_y * FONT_H, ' ');
         }
     } else if (c == '\t') {
-        cursor_x = (cursor_x + 4) & ~3;
+        cursor_x = (cursor_x + TAB_STOP) & ~(TAB_STOP - 1);
     } else if (c >= ASCII_PRINTABLE_FIRST && c <= ASCII_PRINTABLE_LAST) {
         draw_glyph(cursor_x * FONT_W, cursor_y * FONT_H, c);
         cursor_x++;
