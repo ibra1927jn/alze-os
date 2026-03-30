@@ -1,9 +1,16 @@
-# PROGRESS.md — Estado del proyecto
+# PROGRESS.md — Project Status
 
-## En curso
-- [2026-03-30] | Heartbeat maintenance: pass 15 comment translation to English | 100%
+## In progress
+- [2026-03-30] | Heartbeat maintenance: pass 16 final Spanish comment cleanup | 100%
 
-## Sesion 2026-03-30 (heartbeat pass 15)
+## Session 2026-03-30 (heartbeat pass 16)
+- refactor(pci,pmm): translate remaining Spanish comments to English | e60b91a
+- refactor(ext2): translate last Spanish comment to English in ext2.h | 5f0e1e3
+- docs(progress): translate Spanish section headers to English
+- All Spanish comments now fully translated across the entire codebase
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
+
+## Session 2026-03-30 (heartbeat pass 15)
 - refactor(kernel): translate Spanish comments to English in 8 core files (klog, lapic, pmm, ramdisk, sched, string, tlb_shootdown, vmm) | 6fdf1c9
 - refactor(kernel): translate Spanish comments to English in 5 header files (ext2.h, ramdisk.h, lapic.h, pci.h, tlb_shootdown.h) | 806f2d1
 - refactor(ext2,lapic): translate Spanish comments to English in ext2.c and lapic.c | af93e5f
@@ -12,14 +19,14 @@
 - ~140 Spanish comments translated across 16 files total
 - Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-30 (heartbeat pass 14)
+## Session 2026-03-30 (heartbeat pass 14)
 - fix(pci): use 16-bit write for PCI command register, add pci_write16/pci_write8 | f072d51
 - refactor(vmm): use PAGE_OFFSET_2MB constant for 2MB alignment checks | 7001f3d
 - refactor(uart): define REG_RBR for receive buffer register reads | d4868a1
 - Moved PCI_CMD_* and PCI_BAR_* defines from xhci.c to pci.h (proper module boundary)
 - Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-30 (heartbeat pass 13)
+## Session 2026-03-30 (heartbeat pass 13)
 - refactor(ssp): replace magic numbers with named constants for canary and TSC mixing | 7870d33
 - refactor(kprintf): replace magic buffer sizes and pointer width with named constants | 34362d3
 - refactor(panic): define PANIC_STACK_DUMP_ENTRIES constant for stack dump loop | 624d287
@@ -31,32 +38,32 @@
 - refactor(gdt): define GDT_FLAGS_NIBBLE and GDT_LIMIT_HIGH_MAX for granularity encoding | fb0746a
 - Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-30 (heartbeat pass 12)
+## Session 2026-03-30 (heartbeat pass 12)
 - refactor(vmm): replace magic numbers with named page-offset and table-entry constants | b6aa714
 - refactor(idt): use named constants for IRQ vectors and LAPIC/IPI gate entries | df3f145
 - refactor(console): define named constants for glyph MSB and tab stop width | 043533c
 - refactor(pic): replace magic IRQ count literals with named PIC constants | e9449db
 - Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-30 (heartbeat pass 11)
+## Session 2026-03-30 (heartbeat pass 11)
 - refactor(spinlock): replace magic number with named RFLAGS_IF constant | 350ec8b
 - refactor(kb): define named constants for PS/2 keyboard controller ports | 823f9c2
 - refactor(lapic): derive CALIBRATION_PIT_TICKS from PIT_BASE_FREQ constant | cbdb382
 - Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-30 (heartbeat pass 10)
+## Session 2026-03-30 (heartbeat pass 10)
 - refactor(kernel): define named constants for magic numbers in console, uart, pic | 6c94e09
 - refactor(ktimer): move TIMER_TICK_MS to ktimer.h and use in watchdog | 85b0dec
 - refactor(gdt): replace manual byte loop with memset for TSS zeroing | eab317e
 - Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-30 (heartbeat pass 9)
+## Session 2026-03-30 (heartbeat pass 9)
 - refactor(tlb): define TLB_SHOOTDOWN_TIMEOUT constant for busy-wait limit | 2d367bc
 - refactor(runtime_tests): define named constants for timer accuracy tolerance bounds | b41d834
 - refactor(kmalloc): define SLAB_MAX_SIZE constant instead of magic 2048 | b3ad2bd
 - Build: pre-existing failure (missing limine.h dependency), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-29 (heartbeat pass 8)
+## Session 2026-03-29 (heartbeat pass 8)
 - refactor(lapic): remove write-only lapic_timer_freq variable (dead code) | 6726f47
 - refactor(kmalloc,xhci): remove unused SLAB_MAX_SIZE, POISON_PATTERN, 5 xHCI register defines | 6794e56
 - refactor(cpuid): define named constants for CPUID feature bits and field masks | d3570a6
@@ -67,7 +74,7 @@
 - refactor(panic): define RFLAGS bit constants for register dump decoding | b7532b2
 - Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-29 (heartbeat pass 7)
+## Session 2026-03-29 (heartbeat pass 7)
 - refactor(pic): replace magic numbers with named constants for ICW3/masks/PIT commands | 0c0f4da
 - refactor(idt): define IDT_GATE_KERNEL_INTR constant for 0x8E gate attribute | e931f1d
 - refactor(lapic): replace magic numbers with named constants for MSR/ports/bit fields | 1253220
@@ -77,13 +84,13 @@
 - refactor(watchdog): remove write-only watchdog_warnings counter (dead code) | b9e42cf
 - Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-29 (heartbeat pass 6)
+## Session 2026-03-29 (heartbeat pass 6)
 - fix(lapic): use 64-bit arithmetic to prevent overflow in timer calibration | 93283ff
 - refactor(ext2): replace magic numbers 1024/128 with EXT2_BASE_BLOCK_SIZE/EXT2_REV0_INODE_SIZE | 2991263
 - refactor(gdt): define named constants for temporary TSS stack sizes | 6985b63
 - Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-29 (heartbeat pass 5)
+## Session 2026-03-29 (heartbeat pass 5)
 - refactor(console): move mid-file #include "font8x16.h" to top include block | fe25742
 - refactor(kernel): remove unused #include headers in main.c and xhci.c | f693651
 - fix(console): use exact COL_BG color when clearing scrolled line | e6d0e3b
@@ -91,17 +98,17 @@
 - fix(ext2): validate s_log_block_size to prevent shift overflow | e4815af
 - Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-29 (heartbeat pass 4)
+## Session 2026-03-29 (heartbeat pass 4)
 - refactor(kernel): move mid-file #includes to top in kprintf.c, main.c, tests.c | 284539d
 - fix(ext2): remove redundant superblock size check in ext2_init | 26b49ea
 - Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-29 (heartbeat pass 3)
+## Session 2026-03-29 (heartbeat pass 3)
 - fix(sched): add missing panic.h include — KASSERT was undeclared, breaking build | db3bc1c
 - refactor(kernel): normalize limine.h include paths in pmm.c, ramdisk.c, main.c | ce1d9eb
 - Build: clean (was 1 error), Tests: 29/29 passing (unchanged)
 
-## Sesion 2026-03-29 (heartbeat pass 2)
+## Session 2026-03-29 (heartbeat pass 2)
 - fix(pmm): move irq_flags inside #ifndef guard to fix -Wunused-variable | 2670721
 - fix(test): guard PMM_USERSPACE_TEST define to fix -Wmacro-redefined | 2670721
 - fix(ramdisk): prevent integer overflow in bounds check (offset+count wrap) | 2580b15
@@ -111,16 +118,16 @@
 - fix(vfs): add NULL name check in vfs_register_device | 42b11f7
 - Tests: 29/29 passing (was 29/29), 0 warnings (was 2)
 
-## Sesion 2026-03-29 (heartbeat pass 2)
+## Session 2026-03-29 (heartbeat pass 2)
 - security(repo): add .gitignore for build artifacts, editor files, and secrets | 113fe45
 - refactor(pic): remove unused mask1/mask2 variables in pic_init (dead code) | 9d21178
 - refactor(idt): move mid-file #includes to standard include block at top | 7f7bd8a
 - Tests: 29/29 passing (unchanged)
 
-## Completado (anterior)
+## Completed (previous)
 - [2026-03-28] | Quality/hardening pass: sched.c, vmm.c, kmalloc.c, string.c, main.c (12 fixes) | 100%
 
-## Completado
+## Completed
 - [2026-03-28] | TLB shootdown IPI infrastructure (vector 0xFE, tlb_shootdown.c/.h, wired to vmm_flush_tlb) | Pending commit
 - [2026-03-28] | Fix bitmap_find_first UB (bsfq with input 0 in sched.c) | Pending commit
 - [2026-03-28] | Fix PMM ref counting (_reserved → ref_count with proper API) | Pending commit
@@ -134,9 +141,9 @@
 - [2026-03-28] | 3 MEDIUM bugs fixed (xHCI timeouts, kmalloc cast validation, watchdog enforcement) | Commit 592ed75
 - [2026-03-28] | 12 quality fixes (TCB leak, task_join TOCTOU, VMM locks x3, quarantine race, poison lock, memmove SIMD, FB assert) | Commit fec0ee6
 
-## Pendiente
-- SMP AP startup (update active_cpus for TLB shootdown) | Prioridad: media
-- ext2 indirect block support (single/double/triple indirect) | Prioridad: baja
-- xHCI full initialization (device context, command/event rings, transfers) | Prioridad: baja
-- USB HID protocol (keyboard/mouse over USB) | Prioridad: baja
-- AHCI driver for real disk ext2 | Prioridad: baja
+## Pending
+- SMP AP startup (update active_cpus for TLB shootdown) | Priority: medium
+- ext2 indirect block support (single/double/triple indirect) | Priority: low
+- xHCI full initialization (device context, command/event rings, transfers) | Priority: low
+- USB HID protocol (keyboard/mouse over USB) | Priority: low
+- AHCI driver for real disk ext2 | Priority: low
