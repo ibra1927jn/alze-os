@@ -35,6 +35,7 @@
 
 #define SLAB_NUM_CLASSES  8
 #define SLAB_MIN_SIZE     16
+#define SLAB_MAX_SIZE     2048   /* Larger allocs go to PMM directly */
 
 /* Poison byte: written to freed memory to detect use-after-free.
  * If you see 0xDEDEDEDE in a register dump, you freed too early. */
@@ -64,7 +65,7 @@ struct slab_class {
 };
 
 static struct slab_class classes[SLAB_NUM_CLASSES];
-static spinlock_t large_lock = SPINLOCK_INIT;  /* Only for > 2048B allocs */
+static spinlock_t large_lock = SPINLOCK_INIT;  /* Only for > SLAB_MAX_SIZE allocs */
 static uint64_t large_allocs = 0;
 static uint64_t large_frees  = 0;
 
@@ -99,7 +100,7 @@ static int size_to_class(uint64_t size) {
     if (size <= 256)  return 4;
     if (size <= 512)  return 5;
     if (size <= 1024) return 6;
-    if (size <= 2048) return 7;
+    if (size <= SLAB_MAX_SIZE) return 7;
     return -1;  /* Too large for slab → page alloc */
 }
 
