@@ -1,7 +1,13 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
-- [2026-03-30] | Heartbeat maintenance: magic number cleanup in tlb, runtime_tests, kmalloc | 100%
+- [2026-03-30] | Heartbeat maintenance: magic number cleanup, TIMER_TICK_MS consolidation, memset modernization | 100%
+
+## Sesion 2026-03-30 (heartbeat pass 10)
+- refactor(kernel): define named constants for magic numbers in console, uart, pic | 6c94e09
+- refactor(ktimer): move TIMER_TICK_MS to ktimer.h and use in watchdog | 85b0dec
+- refactor(gdt): replace manual byte loop with memset for TSS zeroing | eab317e
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Sesion 2026-03-30 (heartbeat pass 9)
 - refactor(tlb): define TLB_SHOOTDOWN_TIMEOUT constant for busy-wait limit | 2d367bc
