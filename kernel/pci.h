@@ -1,11 +1,11 @@
 /*
  * Anykernel OS — PCI Configuration Space Access
  *
- * Acceso al espacio de configuracion PCI via I/O ports (mecanismo 1).
- * PCI usa puertos 0xCF8 (address) y 0xCFC (data) para leer/escribir
- * registros de configuracion de cualquier dispositivo en el bus.
+ * PCI configuration space access via I/O ports (mechanism 1).
+ * PCI uses ports 0xCF8 (address) and 0xCFC (data) to read/write
+ * configuration registers of any device on the bus.
  *
- * Direccionamiento: Bus (8 bits) | Device (5 bits) | Function (3 bits) | Offset (8 bits)
+ * Addressing: Bus (8 bits) | Device (5 bits) | Function (3 bits) | Offset (8 bits)
  */
 
 #ifndef PCI_H
@@ -13,11 +13,11 @@
 
 #include <stdint.h>
 
-/* PCI I/O ports (mecanismo 1) */
+/* PCI I/O ports (mechanism 1) */
 #define PCI_CONFIG_ADDR  0xCF8
 #define PCI_CONFIG_DATA  0xCFC
 
-/* Offsets de registros de configuracion estandar */
+/* Standard configuration register offsets */
 #define PCI_VENDOR_ID    0x00
 #define PCI_DEVICE_ID    0x02
 #define PCI_COMMAND      0x04
@@ -36,7 +36,7 @@
 #define PCI_IRQ_LINE     0x3C
 #define PCI_IRQ_PIN      0x3D
 
-/* PCI classes relevantes */
+/* Relevant PCI classes */
 #define PCI_CLASS_SERIAL_BUS     0x0C
 #define PCI_SUBCLASS_USB         0x03
 #define PCI_PROGIF_XHCI          0x30  /* xHCI (USB 3.x) */
@@ -55,10 +55,10 @@
 #define PCI_BAR_TYPE_MASK      0x06          /* Bits 2:1: BAR type             */
 #define PCI_BAR_TYPE_64BIT     0x04          /* Type 10b: 64-bit BAR           */
 
-/* Vendor/Device ID invalidos */
+/* Invalid Vendor/Device ID */
 #define PCI_VENDOR_INVALID  0xFFFF
 
-/* Resultado de un scan PCI */
+/* Result of a PCI scan */
 struct pci_device {
     uint8_t  bus;
     uint8_t  device;
@@ -82,7 +82,7 @@ static inline uint32_t pci_config_addr(uint8_t bus, uint8_t dev,
         ((uint32_t)bus << 16)     |
         ((uint32_t)(dev & 0x1F) << 11) |
         ((uint32_t)(func & 0x07) << 8) |
-        (offset & 0xFC)              /* Alineado a 4 bytes */
+        (offset & 0xFC)              /* Aligned to 4 bytes */
     );
 }
 

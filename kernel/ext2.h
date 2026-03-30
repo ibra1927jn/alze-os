@@ -1,12 +1,12 @@
 /*
  * Anykernel OS — ext2 Filesystem (Read-Only)
  *
- * Soporte basico de lectura ext2 sobre ramdisk (boot module).
- * Implementa: superblock, group descriptors, inodes, directorios,
- * lectura de archivos (solo bloques directos por ahora).
+ * Basic read-only ext2 support over ramdisk (boot module).
+ * Implements: superblock, group descriptors, inodes, directories,
+ * file reading (direct blocks only for now).
  *
- * El backing store es un ramdisk cargado como modulo de Limine.
- * No requiere AHCI ni disco real.
+ * The backing store is a ramdisk loaded as a Limine module.
+ * Does not require AHCI or a real disk.
  */
 
 #ifndef EXT2_H
@@ -16,26 +16,26 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-/* ── Constantes ext2 ────────────────────────────────────────────── */
+/* ── ext2 constants ────────────────────────────────────────────── */
 
 #define EXT2_SUPER_MAGIC       0xEF53
-#define EXT2_SUPERBLOCK_OFFSET 1024   /* Superblock empieza en byte 1024 */
+#define EXT2_SUPERBLOCK_OFFSET 1024   /* Superblock starts at byte 1024 */
 #define EXT2_BASE_BLOCK_SIZE   1024   /* block_size = EXT2_BASE_BLOCK_SIZE << s_log_block_size */
 #define EXT2_REV0_INODE_SIZE   128    /* Default inode size for revision 0 */
 
-/* Tipos de inode (campo i_mode, bits 12-15) */
+/* Inode types (i_mode field, bits 12-15) */
 #define EXT2_S_IFREG  0x8000  /* Regular file */
 #define EXT2_S_IFDIR  0x4000  /* Directory */
-#define EXT2_S_IFMT   0xF000  /* Mascara para tipo de archivo */
+#define EXT2_S_IFMT   0xF000  /* File type mask */
 
-/* Inode especial: root directory siempre es inode 2 */
+/* Special inode: root directory is always inode 2 */
 #define EXT2_ROOT_INO  2
 
-/* Bloques directos por inode */
+/* Direct blocks per inode */
 #define EXT2_NDIR_BLOCKS  12
-#define EXT2_IND_BLOCK    12  /* Indirecto simple (no implementado aun) */
-#define EXT2_DIND_BLOCK   13  /* Indirecto doble (no implementado aun) */
-#define EXT2_TIND_BLOCK   14  /* Indirecto triple (no implementado aun) */
+#define EXT2_IND_BLOCK    12  /* Single indirect (not implemented yet) */
+#define EXT2_DIND_BLOCK   13  /* Double indirect (not implemented yet) */
+#define EXT2_TIND_BLOCK   14  /* Triple indirect (not implemented yet) */
 #define EXT2_N_BLOCKS     15
 
 /* ── Superblock ─────────────────────────────────────────────────── */
@@ -66,11 +66,11 @@ struct ext2_superblock {
     uint32_t s_rev_level;
     uint16_t s_def_resuid;
     uint16_t s_def_resgid;
-    /* Solo los campos que necesitamos — hay mas en rev >= 1 */
+    /* Only the fields we need — more exist in rev >= 1 */
     uint32_t s_first_ino;
     uint16_t s_inode_size;
     uint16_t s_block_group_nr;
-    /* ... resto ignorado para lectura basica */
+    /* ... rest ignored for basic reading */
 } __attribute__((packed));
 
 /* ── Block Group Descriptor ─────────────────────────────────────── */
@@ -91,17 +91,17 @@ struct ext2_group_desc {
 struct ext2_inode {
     uint16_t i_mode;
     uint16_t i_uid;
-    uint32_t i_size;          /* Tamano en bytes (low 32 bits) */
+    uint32_t i_size;          /* Size in bytes (low 32 bits) */
     uint32_t i_atime;
     uint32_t i_ctime;
     uint32_t i_mtime;
     uint32_t i_dtime;
     uint16_t i_gid;
     uint16_t i_links_count;
-    uint32_t i_blocks;        /* Numero de sectores de 512 bytes */
+    uint32_t i_blocks;        /* Number of 512-byte sectors */
     uint32_t i_flags;
     uint32_t i_osd1;
-    uint32_t i_block[EXT2_N_BLOCKS]; /* Punteros a bloques de datos */
+    uint32_t i_block[EXT2_N_BLOCKS]; /* Pointers to data blocks */
     uint32_t i_generation;
     uint32_t i_file_acl;
     uint32_t i_dir_acl;       /* i_size_high en rev >= 1 */
@@ -113,7 +113,7 @@ struct ext2_inode {
 
 struct ext2_dir_entry {
     uint32_t inode;
-    uint16_t rec_len;         /* Longitud total de esta entrada */
+    uint16_t rec_len;         /* Total length of this entry */
     uint8_t  name_len;
     uint8_t  file_type;
     char     name[];          /* Nombre (NO null-terminated en disco) */
@@ -129,29 +129,29 @@ struct ext2_dir_entry {
 #define EXT2_FT_SOCK     6
 #define EXT2_FT_SYMLINK  7
 
-/* ── Estado del filesystem montado ──────────────────────────────── */
+/* ── Mounted filesystem state ──────────────────────────────────── */
 
 struct ext2_fs {
-    uint8_t              *disk;         /* Puntero base al ramdisk */
-    uint64_t              disk_size;    /* Tamano total del ramdisk */
-    struct ext2_superblock sb;          /* Copia del superblock */
+    uint8_t              *disk;         /* Base pointer to ramdisk */
+    uint64_t              disk_size;    /* Total ramdisk size */
+    struct ext2_superblock sb;          /* Copy of superblock */
     uint32_t              block_size;   /* 1024 << s_log_block_size */
-    uint32_t              groups_count; /* Numero de block groups */
-    uint32_t              inode_size;   /* Tamano de cada inode en disco */
-    struct ext2_group_desc *gdt;        /* Puntero a la group descriptor table */
+    uint32_t              groups_count; /* Number of block groups */
+    uint32_t              inode_size;   /* Size of each inode on disk */
+    struct ext2_group_desc *gdt;        /* Pointer to group descriptor table */
 };
 
 /* ── API ────────────────────────────────────────────────────────── */
 
 /*
  * Initialize ext2 from a ramdisk (Limine boot module).
- * Parsea superblock, valida magic, configura group descriptors.
+ * Parses superblock, validates magic, sets up group descriptors.
  * Returns 0 on success, negative errno on failure.
  */
 int ext2_init(void *ramdisk_base, uint64_t ramdisk_size);
 
 /*
- * Read an inode by number. Calcula el block group y offset.
+ * Read an inode by number. Computes block group and offset.
  * Returns 0 on success, negative errno on failure.
  */
 int ext2_read_inode(uint32_t ino, struct ext2_inode *out);

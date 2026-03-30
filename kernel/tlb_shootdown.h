@@ -1,19 +1,19 @@
 /*
  * Anykernel OS — TLB Shootdown via IPI
  *
- * Cuando una CPU modifica page tables (vmm_map/vmm_unmap), las demas
- * CPUs pueden tener entradas TLB obsoletas. Un IPI (Inter-Processor
- * Interrupt) fuerza a todas las CPUs a invalidar la entrada relevante.
+ * When a CPU modifies page tables (vmm_map/vmm_unmap), other CPUs
+ * may have stale TLB entries. An IPI (Inter-Processor Interrupt)
+ * forces all CPUs to invalidate the relevant entry.
  *
- * Protocolo:
- *   1. CPU emisora escribe la direccion virtual en tlb_shootdown_addr
- *   2. Envia IPI vector IPI_TLB_SHOOTDOWN a todas las demas CPUs
- *   3. Cada CPU receptora ejecuta invlpg sobre esa direccion
- *   4. Incrementa tlb_shootdown_ack atomicamente
- *   5. CPU emisora espera hasta que todos hayan respondido
+ * Protocol:
+ *   1. Sending CPU writes the virtual address to tlb_shootdown_addr
+ *   2. Sends IPI vector IPI_TLB_SHOOTDOWN to all other CPUs
+ *   3. Each receiving CPU executes invlpg on that address
+ *   4. Atomically increments tlb_shootdown_ack
+ *   5. Sending CPU waits until all have responded
  *
- * Requiere LAPIC para enviar IPIs reales. Mientras solo haya PIC 8259A
- * (single-core), el shootdown es un no-op seguro.
+ * Requires LAPIC for real IPIs. While only PIC 8259A is present
+ * (single-core), the shootdown is a safe no-op.
  */
 
 #ifndef TLB_SHOOTDOWN_H
@@ -22,17 +22,17 @@
 #include <stdint.h>
 #include "spinlock.h"
 
-/* Vector dedicado para el IPI de TLB shootdown.
- * Fuera del rango PIC (0x20-0x2F) y excepciones (0x00-0x1F).
- * Vector 0xFE es convencion comun (Linux usa 0xFD para reschedule). */
+/* Dedicated vector for TLB shootdown IPI.
+ * Outside PIC range (0x20-0x2F) and exceptions (0x00-0x1F).
+ * Vector 0xFE is a common convention (Linux uses 0xFD for reschedule). */
 #define IPI_TLB_SHOOTDOWN  0xFE
 
-/* Estado compartido del shootdown en curso */
+/* Shared state for an in-progress shootdown */
 struct tlb_shootdown_state {
-    volatile uint64_t target_addr;    /* Direccion virtual a invalidar */
-    volatile uint32_t pending_cpus;   /* Cuantas CPUs deben responder */
-    volatile uint32_t ack_count;      /* Cuantas CPUs han respondido */
-    spinlock_t        lock;           /* Protege el estado durante shootdown */
+    volatile uint64_t target_addr;    /* Virtual address to invalidate */
+    volatile uint32_t pending_cpus;   /* How many CPUs must respond */
+    volatile uint32_t ack_count;      /* How many CPUs have responded */
+    spinlock_t        lock;           /* Protects state during shootdown */
 };
 
 /* Estado global — definido en tlb_shootdown.c */

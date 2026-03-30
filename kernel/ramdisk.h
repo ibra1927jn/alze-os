@@ -1,13 +1,13 @@
 /*
  * Anykernel OS — Ramdisk Driver (Boot Module Backed)
  *
- * Carga un modulo de Limine como dispositivo de bloque en memoria.
- * Usado como backing store para ext2 sin necesitar AHCI/disco real.
+ * Loads a Limine module as an in-memory block device.
+ * Used as backing store for ext2 without requiring AHCI/real disk.
  *
- * El modulo se especifica en limine.conf como:
+ * The module is specified in limine.conf as:
  *   module_path: boot():/boot/ramdisk.img
  *
- * El ramdisk es read-only (la imagen viene del bootloader).
+ * The ramdisk is read-only (the image comes from the bootloader).
  */
 
 #ifndef RAMDISK_H
@@ -16,17 +16,17 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* Estado del ramdisk */
+/* Ramdisk state */
 struct ramdisk {
-    void     *base;   /* Direccion virtual del modulo cargado */
-    uint64_t  size;   /* Tamano en bytes */
-    bool      loaded; /* true si se encontro y cargo un modulo */
+    void     *base;   /* Virtual address of the loaded module */
+    uint64_t  size;   /* Size in bytes */
+    bool      loaded; /* true if a module was found and loaded */
 };
 
 /*
  * Initialize ramdisk from Limine boot modules.
- * Busca el primer modulo disponible y lo expone como ramdisk.
- * Si tiene formato ext2, inicializa el filesystem automaticamente.
+ * Searches for the first available module and exposes it as a ramdisk.
+ * If it contains an ext2 image, initializes the filesystem automatically.
  */
 void ramdisk_init(void);
 
