@@ -49,6 +49,11 @@ static const char sc_upper[128] = {
 #define SC_RSHIFT_RELEASE 0xB6
 #define SC_CAPSLOCK       0x3A
 
+/* Scancode filtering masks */
+#define SC_RELEASE_BIT    0x80  /* Bit 7: key release flag       */
+#define SC_EXTENDED_E0    0xE0  /* Extended scancode prefix (E0) */
+#define SC_EXTENDED_E1    0xE1  /* Extended scancode prefix (E1) */
+
 /* Modifier state */
 static uint8_t shift_held = 0;
 static uint8_t caps_on = 0;
@@ -97,8 +102,8 @@ void kb_irq_handler(void) {
     }
 
     /* Ignore other key releases and extended scancodes */
-    if (scancode & 0x80) return;
-    if (scancode == 0xE0 || scancode == 0xE1) return;
+    if (scancode & SC_RELEASE_BIT) return;
+    if (scancode == SC_EXTENDED_E0 || scancode == SC_EXTENDED_E1) return;
 
     /* Determine if we should use uppercase */
     int use_upper = shift_held ^ caps_on;
