@@ -15,7 +15,6 @@
 #include "kprintf.h"
 #include "log.h"
 #include "memory.h"
-#include "string.h"
 #include "pmm.h"
 #include "kmalloc.h"
 #include "vmm.h"
@@ -242,17 +241,17 @@ void _start(void) {
     lapic_init();
 
     /* ─────────────────────────────────────────────────────────────
-     * 13e. TLB Shootdown — ISR stub ya registrado en IDT
+     * 13e. TLB Shootdown — ISR stub already registered in IDT
      * ───────────────────────────────────────────────────────────── */
     tlb_shootdown_init();
 
     /* ─────────────────────────────────────────────────────────────
-     * 13f. Ramdisk + ext2 — boot module como filesystem
+     * 13f. Ramdisk + ext2 — boot module as filesystem
      * ───────────────────────────────────────────────────────────── */
     ramdisk_init();
 
     /* ─────────────────────────────────────────────────────────────
-     * 13g. PCI + USB — enumeracion y deteccion xHCI
+     * 13g. PCI + USB — enumeration and xHCI detection
      * ───────────────────────────────────────────────────────────── */
     pci_enumerate();
     xhci_init();
