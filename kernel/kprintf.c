@@ -27,6 +27,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* ── Constants ───────────────────────────────────────────────── */
+
+#define UINT64_DECIMAL_DIGITS  20   /* max digits in a uint64 decimal string */
+#define PTR_HEX_WIDTH          16   /* hex digits in a 64-bit pointer        */
+
 /* ── Internal helpers ─────────────────────────────────────────── */
 
 static void kprint_char(char c) {
@@ -66,7 +71,7 @@ static void kprint_unsigned(uint64_t val, int base, int width, char pad, bool up
     static const char digits_upper[] = "0123456789ABCDEF";
     const char *digits = uppercase ? digits_upper : digits_lower;
 
-    char buf[20]; /* max uint64 decimal = 20 digits */
+    char buf[UINT64_DECIMAL_DIGITS]; /* max uint64 decimal = 20 digits */
     int i = 0;
 
     if (val == 0) {
@@ -182,7 +187,7 @@ void kprintf(const char *fmt, ...) {
 
         case 'p':
             kprint_string_padded("0x", 0, false);
-            kprint_unsigned((uint64_t)va_arg(args, void *), 16, 16, '0', false);
+            kprint_unsigned((uint64_t)va_arg(args, void *), 16, PTR_HEX_WIDTH, '0', false);
             break;
 
         case 'c':
@@ -231,7 +236,7 @@ static void snprint_unsigned(struct snprintf_ctx *ctx, uint64_t val,
     static const char lo[] = "0123456789abcdef";
     static const char up[] = "0123456789ABCDEF";
     const char *digits = uppercase ? up : lo;
-    char tmp[20];
+    char tmp[UINT64_DECIMAL_DIGITS];
     int i = 0;
 
     if (val == 0) {
@@ -298,7 +303,7 @@ int kvsnprintf(char *buf, size_t size, const char *fmt, va_list args) {
             break;
         case 'p':
             snprint_string(&ctx, "0x");
-            snprint_unsigned(&ctx, (uint64_t)va_arg(args, void *), 16, 16, '0', false);
+            snprint_unsigned(&ctx, (uint64_t)va_arg(args, void *), 16, PTR_HEX_WIDTH, '0', false);
             break;
         case 'c': snprint_char(&ctx, (char)va_arg(args, int)); break;
         case '%': snprint_char(&ctx, '%'); break;
