@@ -77,7 +77,9 @@ static struct tss tss_instance;
 #define GDT_ACCESS_TSS64  0x89  /* Present, DPL=0, type=0x9 (64-bit TSS) */
 
 /* GDT flags (upper nibble of granularity byte) */
-#define GDT_FLAG_LONG_MODE  0x20  /* L=1: 64-bit code segment */
+#define GDT_FLAG_LONG_MODE   0x20  /* L=1: 64-bit code segment              */
+#define GDT_FLAGS_NIBBLE     0xF0  /* upper nibble: flags in granularity     */
+#define GDT_LIMIT_HIGH_MAX   0x0F  /* lower nibble: limit bits 19:16 = max  */
 
 static struct gdt_entry gdt[7];
 static struct gdt_pointer gdtr;
@@ -88,7 +90,7 @@ static void gdt_set_entry(int idx, uint8_t access, uint8_t flags) {
     gdt[idx].base_low    = 0;
     gdt[idx].base_mid    = 0;
     gdt[idx].access      = access;
-    gdt[idx].granularity  = (flags & 0xF0) | 0x0F;  /* flags | limit_high */
+    gdt[idx].granularity  = (flags & GDT_FLAGS_NIBBLE) | GDT_LIMIT_HIGH_MAX;  /* flags | limit_high */
     gdt[idx].base_high   = 0;
 }
 
