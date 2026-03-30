@@ -1,7 +1,14 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
-- [2026-03-30] | Heartbeat maintenance: RFLAGS_IF constant, KB port naming, LAPIC calibration derivation | 100%
+- [2026-03-30] | Heartbeat maintenance: VMM/IDT/console/PIC named constants | 100%
+
+## Sesion 2026-03-30 (heartbeat pass 12)
+- refactor(vmm): replace magic numbers with named page-offset and table-entry constants | b6aa714
+- refactor(idt): use named constants for IRQ vectors and LAPIC/IPI gate entries | df3f145
+- refactor(console): define named constants for glyph MSB and tab stop width | 043533c
+- refactor(pic): replace magic IRQ count literals with named PIC constants | e9449db
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Sesion 2026-03-30 (heartbeat pass 11)
 - refactor(spinlock): replace magic number with named RFLAGS_IF constant | 350ec8b
