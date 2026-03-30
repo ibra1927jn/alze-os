@@ -47,16 +47,6 @@ static inline void xhci_op_write32(uint32_t offset, uint32_t val) {
 #define XHCI_PORT_REG_SIZE   0x10
 #define XHCI_OP_PORTSC(n)  (XHCI_PORT_REG_BASE + ((n) * XHCI_PORT_REG_SIZE))
 
-/* PCI BAR decoding */
-#define PCI_BAR_IO_BIT         0x01   /* Bit 0: 1=I/O, 0=MMIO          */
-#define PCI_BAR_ADDR_MASK_32   0xFFFFFFF0U  /* Bits 31:4 for 32-bit BAR */
-#define PCI_BAR_TYPE_MASK      0x06   /* Bits 2:1: BAR type             */
-#define PCI_BAR_TYPE_64BIT     0x04   /* Type 10b: 64-bit BAR           */
-
-/* PCI Command register bits */
-#define PCI_CMD_MEMORY_SPACE   (1 << 1)   /* Enable memory-mapped access */
-#define PCI_CMD_BUS_MASTER     (1 << 2)   /* Enable bus mastering        */
-
 /* Timeout spin-loop limits for controller state transitions */
 #define XHCI_TIMEOUT_HALT     100000   /* Iterations waiting for HCHalted     */
 #define XHCI_TIMEOUT_RESET   1000000   /* Iterations waiting for HCRST clear  */
@@ -198,7 +188,7 @@ void xhci_init(void) {
     uint16_t cmd = pci_read16(pci_dev.bus, pci_dev.device,
                               pci_dev.function, PCI_COMMAND);
     cmd |= PCI_CMD_MEMORY_SPACE | PCI_CMD_BUS_MASTER;
-    pci_write32(pci_dev.bus, pci_dev.device, pci_dev.function,
+    pci_write16(pci_dev.bus, pci_dev.device, pci_dev.function,
                 PCI_COMMAND, cmd);
 
     /* Map BAR0 into virtual space via HHDM.

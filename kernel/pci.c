@@ -47,6 +47,22 @@ void pci_write32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset, uint32_
     outl(PCI_CONFIG_DATA, val);
 }
 
+void pci_write16(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset, uint16_t val) {
+    uint32_t dword = pci_read32(bus, dev, func, offset & PCI_REG_ALIGN_MASK);
+    int shift = (offset & 2) * 8;
+    dword &= ~(0xFFFF << shift);
+    dword |= (uint32_t)val << shift;
+    pci_write32(bus, dev, func, offset & PCI_REG_ALIGN_MASK, dword);
+}
+
+void pci_write8(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset, uint8_t val) {
+    uint32_t dword = pci_read32(bus, dev, func, offset & PCI_REG_ALIGN_MASK);
+    int shift = (offset & 3) * 8;
+    dword &= ~(0xFF << shift);
+    dword |= (uint32_t)val << shift;
+    pci_write32(bus, dev, func, offset & PCI_REG_ALIGN_MASK, dword);
+}
+
 /* ── Busqueda de dispositivo por clase ──────────────────────────── */
 
 int pci_find_device(uint8_t class_code, uint8_t subclass, uint8_t prog_if,

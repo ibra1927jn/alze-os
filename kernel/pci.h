@@ -44,6 +44,17 @@
 #define PCI_PROGIF_OHCI          0x10  /* OHCI (USB 1.1) */
 #define PCI_PROGIF_UHCI          0x00  /* UHCI (USB 1.0) */
 
+/* PCI Command register bits */
+#define PCI_CMD_IO_SPACE       (1 << 0)   /* Enable I/O space access     */
+#define PCI_CMD_MEMORY_SPACE   (1 << 1)   /* Enable memory-mapped access */
+#define PCI_CMD_BUS_MASTER     (1 << 2)   /* Enable bus mastering        */
+
+/* PCI BAR decoding */
+#define PCI_BAR_IO_BIT         0x01          /* Bit 0: 1=I/O, 0=MMIO          */
+#define PCI_BAR_ADDR_MASK_32   0xFFFFFFF0U   /* Bits 31:4 for 32-bit BAR      */
+#define PCI_BAR_TYPE_MASK      0x06          /* Bits 2:1: BAR type             */
+#define PCI_BAR_TYPE_64BIT     0x04          /* Type 10b: 64-bit BAR           */
+
 /* Vendor/Device ID invalidos */
 #define PCI_VENDOR_INVALID  0xFFFF
 
@@ -94,6 +105,16 @@ uint8_t pci_read8(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset);
  * Write 32-bit value to PCI config space.
  */
 void pci_write32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset, uint32_t val);
+
+/*
+ * Write 16-bit value to PCI config space (read-modify-write).
+ */
+void pci_write16(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset, uint16_t val);
+
+/*
+ * Write 8-bit value to PCI config space (read-modify-write).
+ */
+void pci_write8(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset, uint8_t val);
 
 /*
  * Scan PCI bus for a device matching class/subclass/progif.
