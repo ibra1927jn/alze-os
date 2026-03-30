@@ -210,7 +210,7 @@ void idt_init(void) {
     idt_set_gate(IRQ_VECTOR(IRQ_TIMER), isr_stub_32, 0);     /* IRQ0: Timer */
     idt_set_gate(IRQ_VECTOR(IRQ_KEYBOARD), isr_stub_33, 0);  /* IRQ1: Keyboard */
 
-    /* LAPIC vectors (fuera del rango PIC) */
+    /* LAPIC vectors (outside the PIC range) */
     idt_set_gate(LAPIC_TIMER_VECTOR, isr_stub_253, 0);    /* LAPIC Timer */
     idt_set_gate(IPI_TLB_SHOOTDOWN, isr_stub_254, 0);     /* TLB Shootdown IPI */
 
