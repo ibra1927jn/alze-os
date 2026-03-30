@@ -297,8 +297,8 @@ void pmm_dump_stats(void) {
 /* ── Reference counting (COW / shared pages) ─────────────────── */
 
 /*
- * Incrementa el contador de referencias de una pagina fisica.
- * Se usa al compartir paginas entre procesos (fork + COW).
+ * Increment the reference count of a physical page.
+ * Used when sharing pages between processes (fork + COW).
  */
 void pmm_ref_inc(uint64_t phys_addr) {
     PMM_ASSERT((phys_addr & (PAGE_SIZE - 1)) == 0);
@@ -319,8 +319,8 @@ void pmm_ref_inc(uint64_t phys_addr) {
 }
 
 /*
- * Decrementa el contador de referencias. Retorna el nuevo valor.
- * Cuando llega a 0, el caller puede liberar la pagina con pmm_free_pages.
+ * Decrement the reference count. Returns the new value.
+ * When it reaches 0, the caller can free the page with pmm_free_pages.
  */
 uint32_t pmm_ref_dec(uint64_t phys_addr) {
     PMM_ASSERT((phys_addr & (PAGE_SIZE - 1)) == 0);

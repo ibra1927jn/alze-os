@@ -58,8 +58,8 @@ static struct list_head sleep_queue = LIST_HEAD_INIT(sleep_queue);
 static struct list_head deadline_queue = LIST_HEAD_INIT(deadline_queue);  /* EDF: sorted by deadline, O(1) dequeue */
 
 /* O(1) helpers: BSF finds lowest set bit = highest priority.
- * IMPORTANTE: bsfq tiene resultado indefinido cuando la entrada es 0.
- * Retorna -1 si no hay bits activos para evitar comportamiento indefinido. */
+ * IMPORTANT: bsfq has undefined result when input is 0.
+ * Returns -1 if no bits are set to avoid undefined behavior. */
 static inline int bitmap_find_first(uint64_t bm) {
     if (bm == 0) return -1;
     uint64_t result;
@@ -80,7 +80,7 @@ static inline void bitmap_enqueue(struct task *t) {
 }
 
 static inline struct task *bitmap_dequeue(void) {
-    /* Proteccion contra bitmap vacio (bsfq UB si input == 0) */
+    /* Protection against empty bitmap (bsfq UB if input == 0) */
     int p = bitmap_find_first(prio_bitmap);
     if (p < 0) return 0;
 
@@ -217,7 +217,7 @@ int task_create(const char *name, task_entry_fn entry) {
 
     uint64_t stack_phys = pmm_alloc_pages_zero(2);
     if (stack_phys == 0) {
-        /* Devolver el TCB al bitmap — evitar leak de slot */
+        /* Return the TCB to the bitmap — avoid slot leak */
         free_tcb(t);
         spin_unlock_irqrestore(&sched_lock, irq_flags);
         return -ENOMEM;
@@ -331,15 +331,15 @@ int task_join(uint32_t tid) {
         return -ESRCH;
     }
 
-    /* Ya termino? Retornar inmediatamente */
+    /* Already finished? Return immediately */
     if (target->finished) {
         spin_unlock_irqrestore(&sched_lock, irq_flags);
         return 0;
     }
 
-    /* Asignar wait queue on-demand para joiners.
-     * La WQ vive en nuestro stack — seguro porque este frame
-     * persiste mientras estemos bloqueados en wq_wait. */
+    /* Assign wait queue on-demand for joiners.
+     * The WQ lives on our stack — safe because this frame
+     * persists while we are blocked in wq_wait. */
     struct wait_queue join_wq;
     wq_init(&join_wq);
 
@@ -349,7 +349,7 @@ int task_join(uint32_t tid) {
 
     spin_unlock_irqrestore(&sched_lock, irq_flags);
 
-    /* Dormir hasta que target llame task_exit -> wq_wake_all */
+    /* Sleep until target calls task_exit -> wq_wake_all */
     while (!target->finished) {
         wq_wait(target->join_wq);
     }
@@ -395,7 +395,7 @@ __hot void schedule(void) {
         next = edf;  /* Already removed from deadline_queue by edf_pick */
     } else if (likely(prio_bitmap != 0)) {
         next = bitmap_dequeue();
-        /* Fallback si bitmap_dequeue fallo (no deberia pasar) */
+        /* Fallback if bitmap_dequeue failed (should not happen) */
         if (!next) next = get_idle();
     } else {
         next = get_idle();
@@ -442,10 +442,10 @@ __hot void sched_tick(void) {
 
     /* CPU accounting */
     cur->ticks_used++;
-    cur->watchdog_ticks++;  /* Watchdog: cuenta ticks sin ceder CPU */
+    cur->watchdog_ticks++;  /* Watchdog: count ticks without yielding CPU */
 
-    /* Watchdog enforcement: matar tareas colgadas (~100s a 100Hz).
-     * No matar idle ni init (TID 0/1) — solo tareas de usuario. */
+    /* Watchdog enforcement: kill hung tasks (~100s at 100Hz).
+     * Do not kill idle or init (TID 0/1) — only user tasks. */
     #define WATCHDOG_LIMIT 10000
     if (cur->watchdog_ticks >= WATCHDOG_LIMIT && cur->tid > 1) {
         kprintf(ANSI_RED "[WATCHDOG] Task '%s' (TID %u) exceeded %u ticks without yielding — killing\n" ANSI_RESET,
@@ -533,7 +533,7 @@ void sched_init(void) {
     prio_bitmap = 0;
 
     struct task *init_task = alloc_tcb();
-    KASSERT(init_task != 0);  /* Sin TCB para init = sistema inutilizable */
+    KASSERT(init_task != 0);  /* No TCB for init = unusable system */
     init_task->tid = next_tid++;
     init_task->state = TASK_RUNNING;
     init_task->stack_phys = 0;
@@ -554,8 +554,8 @@ void sched_init(void) {
     uint64_t irq_flags;
     spin_lock_irqsave(&sched_lock, &irq_flags);
 
-    /* Buscar idle task por TID, no por slot fijo en task_pool.
-     * El slot puede variar si alloc_tcb cambia de orden. */
+    /* Find idle task by TID, not by fixed slot in task_pool.
+     * The slot may vary if alloc_tcb changes order. */
     struct list_node *pos;
     int idle_found = 0;
     list_for_each(pos, &prio_queues[TASK_PRIO_NORMAL]) {

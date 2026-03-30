@@ -254,13 +254,13 @@ void lapic_init(void) {
     lapic_write(LAPIC_REG_ERROR_LVT,   LAPIC_TIMER_MASKED);
     lapic_write(LAPIC_REG_TIMER_LVT,   LAPIC_TIMER_MASKED);
 
-    /* Enviar EOI por si queda alguna interrupcion pendiente */
+    /* Send EOI in case any pending interrupt remains */
     lapic_eoi();
 
-    /* Calibrar el timer (necesario antes de lapic_timer_init) */
+    /* Calibrate timer (required before lapic_timer_init) */
     lapic_ticks_per_sec = lapic_calibrate_timer();
 
-    /* Marcar como habilitado */
+    /* Mark as enabled */
     lapic_enabled = 1;
 
     uint32_t lapic_id = lapic_get_id();
@@ -271,7 +271,7 @@ void lapic_init(void) {
 /* ── Queries ────────────────────────────────────────────────────── */
 
 uint32_t lapic_get_id(void) {
-    /* El LAPIC ID esta en bits 24-31 del registro ID */
+    /* LAPIC ID is in bits 24-31 of the ID register */
     return (lapic_read(LAPIC_REG_ID) >> LAPIC_ID_SHIFT) & LAPIC_ID_MASK;
 }
 
@@ -282,8 +282,8 @@ int lapic_is_enabled(void) {
 /* ── End-Of-Interrupt ───────────────────────────────────────────── */
 
 void lapic_eoi(void) {
-    /* Escribir 0 al registro EOI senala fin de interrupcion.
-     * Cualquier valor funciona pero 0 es la convencion. */
+    /* Writing 0 to the EOI register signals end-of-interrupt.
+     * Any value works but 0 is the convention. */
     lapic_write(LAPIC_REG_EOI, 0);
 }
 

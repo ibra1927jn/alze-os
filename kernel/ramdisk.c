@@ -1,14 +1,14 @@
 /*
  * Anykernel OS — Ramdisk Driver Implementation
  *
- * Busca modulos de Limine al boot, expone el primero como ramdisk.
- * Si contiene una imagen ext2 valida, la monta automaticamente.
+ * Searches for Limine modules at boot, exposes the first one as a ramdisk.
+ * If it contains a valid ext2 image, it is mounted automatically.
  *
  * Limine module protocol (revision 0):
- *   - La request tiene un array de modules (struct limine_file).
- *   - Cada module tiene: address (virtual), size, path, cmdline.
+ *   - The request has an array of modules (struct limine_file).
+ *   - Each module has: address (virtual), size, path, cmdline.
  *
- * En limine.conf se agrega:
+ * In limine.conf, add:
  *   module_path: boot():/boot/ramdisk.img
  */
 
@@ -20,7 +20,7 @@
 #include "errno.h"
 #include "vfs.h"
 
-/* Incluir limine protocol para la request de modulos */
+/* Include limine protocol for module request */
 #include "limine.h"
 
 /* ── Limine module request ──────────────────────────────────────── */
@@ -31,7 +31,7 @@ static volatile struct limine_module_request module_request = {
     .revision = 0
 };
 
-/* ── Estado global ──────────────────────────────────────────────── */
+/* ── Global state ──────────────────────────────────────────────── */
 
 static struct ramdisk rd = {
     .base   = 0,
@@ -39,7 +39,7 @@ static struct ramdisk rd = {
     .loaded = false,
 };
 
-/* ── VFS file_ops para ramdisk ──────────────────────────────────── */
+/* ── VFS file_ops for ramdisk ──────────────────────────────────── */
 
 static int64_t ramdisk_vfs_read(struct vnode *vn, void *buf, uint64_t count) {
     (void)vn;
@@ -58,7 +58,7 @@ static struct file_ops ramdisk_ops = {
     .ioctl = 0,
 };
 
-/* ── Inicializacion ─────────────────────────────────────────────── */
+/* ── Initialization ─────────────────────────────────────────────── */
 
 void ramdisk_init(void) {
     if (!module_request.response) {
@@ -74,7 +74,7 @@ void ramdisk_init(void) {
 
     LOG_INFO("ramdisk: %lu boot module(s) found", count);
 
-    /* Usar el primer modulo como ramdisk */
+    /* Use the first module as ramdisk */
     struct limine_file *mod = module_request.response->modules[0];
     if (!mod || !mod->address || mod->size == 0) {
         LOG_WARN("ramdisk: first module is empty or invalid");
@@ -89,10 +89,10 @@ void ramdisk_init(void) {
            mod->path ? (const char *)mod->path : "(unknown)",
            rd.size, rd.base);
 
-    /* Registrar como dispositivo en VFS */
+    /* Register as a device in VFS */
     vfs_register_device("ramdisk", VN_BLOCKDEV, &ramdisk_ops, 0);
 
-    /* Intentar montar como ext2 */
+    /* Try to mount as ext2 */
     int ret = ext2_init(rd.base, rd.size);
     if (ret == 0) {
         ext2_dump_info();

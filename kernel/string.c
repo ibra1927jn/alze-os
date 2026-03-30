@@ -111,21 +111,21 @@ void *memmove(void *dest, const void *src, size_t n) {
         return memcpy(dest, src, n);
     }
 
-    /* Overlap con dest > src — copiar hacia atras.
-     * Usar rep movsq con STD (direction flag) para bulk, luego bytes residuales. */
+    /* Overlap with dest > src — copy backwards.
+     * Use rep movsq with STD (direction flag) for bulk, then residual bytes. */
     if (n >= 8) {
         size_t qwords = n / 8;
         size_t remain = n % 8;
 
-        /* Copiar bytes residuales primero (al final del buffer) */
+        /* Copy residual bytes first (at the end of the buffer) */
         d += n;
         s += n;
         for (size_t i = 0; i < remain; i++) {
             *(--d) = *(--s);
         }
 
-        /* rep movsq con STD: rdi/rsi apuntan al ultimo qword */
-        d -= 8;  /* Apuntar al ultimo qword a copiar */
+        /* rep movsq with STD: rdi/rsi point to the last qword */
+        d -= 8;  /* Point to the last qword to copy */
         s -= 8;
         asm volatile(
             "std\n\t"

@@ -59,12 +59,12 @@ static inline void write_cr3(uint64_t cr3) {
 }
 
 /* Flush TLB for a single virtual address on ALL CPUs.
- * Primero invalida la entrada local, luego envia IPI a las demas CPUs.
- * En single-core (sin LAPIC), el broadcast es un no-op seguro. */
+ * First invalidate the local entry, then send IPI to other CPUs.
+ * On single-core (no LAPIC), the broadcast is a safe no-op. */
 static inline void vmm_flush_tlb(uint64_t virt) {
-    /* Flush local primero — esta CPU no debe usar la entrada obsoleta */
+    /* Flush local first — this CPU must not use the stale entry */
     asm volatile("invlpg (%0)" :: "r"(virt) : "memory");
-    /* Broadcast a todas las demas CPUs via IPI (no-op si single-core) */
+    /* Broadcast to all other CPUs via IPI (no-op if single-core) */
     tlb_shootdown_broadcast(virt);
 }
 
@@ -202,7 +202,7 @@ void vmm_unmap_page(uint64_t virt) {
     }
     if (pd[PD_INDEX(virt)] & PTE_HUGE) {
         spin_unlock_irqrestore(&vmm_lock, irq_flags);
-        return;  /* No se puede desmapear parte de una pagina 2MB */
+        return;  /* Cannot unmap part of a 2MB huge page */
     }
 
     uint64_t *pt = (uint64_t *)PHYS2VIRT(pte_to_phys(pd[PD_INDEX(virt)]));
@@ -230,7 +230,7 @@ uint64_t vmm_virt_to_phys(uint64_t virt) {
     uint64_t *pdpt = (uint64_t *)PHYS2VIRT(pte_to_phys(pml4[PML4_INDEX(virt)]));
     if (!(pdpt[PDPT_INDEX(virt)] & PTE_PRESENT)) goto out;
 
-    /* Pagina enorme 1GB (improbable pero posible) */
+    /* 1GB huge page (unlikely but possible) */
     if (pdpt[PDPT_INDEX(virt)] & PTE_HUGE) {
         result = (pdpt[PDPT_INDEX(virt)] & PTE_ADDR_MASK) | (virt & PAGE_OFFSET_1GB);
         goto out;
@@ -239,7 +239,7 @@ uint64_t vmm_virt_to_phys(uint64_t virt) {
     uint64_t *pd = (uint64_t *)PHYS2VIRT(pte_to_phys(pdpt[PDPT_INDEX(virt)]));
     if (!(pd[PD_INDEX(virt)] & PTE_PRESENT)) goto out;
 
-    /* Pagina enorme 2MB */
+    /* 2MB huge page */
     if (pd[PD_INDEX(virt)] & PTE_HUGE) {
         result = (pd[PD_INDEX(virt)] & PTE_ADDR_MASK) | (virt & PAGE_OFFSET_2MB);
         goto out;
@@ -277,7 +277,7 @@ void vmm_map_range_huge(uint64_t virt, uint64_t phys, uint64_t size, uint64_t fl
         uint64_t v = virt + off;
         uint64_t p = phys + off;
 
-        /* Walk PML4 -> PDPT -> PD, creando tablas si es necesario */
+        /* Walk PML4 -> PDPT -> PD, creating tables as needed */
         uint64_t *pml4e = get_or_create_entry(pml4_phys, PML4_INDEX(v), true);
         KASSERT(pml4e != NULL);
 
@@ -288,7 +288,7 @@ void vmm_map_range_huge(uint64_t virt, uint64_t phys, uint64_t size, uint64_t fl
         uint64_t pd_phys = pte_to_phys(*pdpte);
         uint64_t *pd = (uint64_t *)PHYS2VIRT(pd_phys);
 
-        /* Escribir entrada de pagina enorme 2MB directamente en PD */
+        /* Write 2MB huge page entry directly into PD */
         pd[PD_INDEX(v)] = p | flags | PTE_HUGE;
     }
 

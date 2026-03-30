@@ -1,12 +1,12 @@
 /*
  * Anykernel OS — TLB Shootdown Implementation
  *
- * Mecanismo de invalidacion TLB cross-CPU via IPI.
+ * Cross-CPU TLB invalidation mechanism via IPI.
  *
- * Usa el driver LAPIC para enviar IPIs y senalar EOI.
- * En single-core (active_cpus == 1) el broadcast es un no-op seguro.
- * Cuando SMP AP startup incremente active_cpus, los IPIs se envian
- * via lapic_send_ipi_all() del driver LAPIC.
+ * Uses the LAPIC driver to send IPIs and signal EOI.
+ * On single-core (active_cpus == 1) the broadcast is a safe no-op.
+ * When SMP AP startup increments active_cpus, IPIs are sent
+ * via lapic_send_ipi_all() from the LAPIC driver.
  */
 
 #include "tlb_shootdown.h"
@@ -16,7 +16,7 @@
 #include "kprintf.h"
 #include "log.h"
 
-/* ── Estado global del shootdown ─────────────────────────────────── */
+/* ── Global shootdown state ─────────────────────────────────── */
 
 struct tlb_shootdown_state tlb_sd = {
     .target_addr  = 0,
@@ -28,44 +28,44 @@ struct tlb_shootdown_state tlb_sd = {
 /* Busy-wait iteration limit before declaring a shootdown timeout */
 #define TLB_SHOOTDOWN_TIMEOUT  1000000
 
-/* Numero de CPUs activas. BSP = 1. SMP startup incrementa esto. */
+/* Number of active CPUs. BSP = 1. SMP startup increments this. */
 static volatile uint32_t active_cpus = 1;
 
-/* ── Inicializacion ──────────────────────────────────────────────── */
+/* ── Initialization ──────────────────────────────────────────────── */
 
 void tlb_shootdown_init(void) {
-    /* ISR stub registrado en IDT por idt_init() (vector 0xFE → isr_stub_254).
-     * El stub en interrupts.asm guarda registros, llama a
-     * tlb_shootdown_ipi_handler(), y ejecuta iretq. */
+    /* ISR stub registered in IDT by idt_init() (vector 0xFE -> isr_stub_254).
+     * The stub in interrupts.asm saves registers, calls
+     * tlb_shootdown_ipi_handler(), and executes iretq. */
     LOG_OK("TLB shootdown: initialized (vector 0x%x, ISR wired, %u CPUs active)",
            IPI_TLB_SHOOTDOWN, active_cpus);
 }
 
-/* ── Broadcast: pedir a todas las CPUs que invaliden ─────────────── */
+/* ── Broadcast: ask all CPUs to invalidate ─────────────────────── */
 
 void tlb_shootdown_broadcast(uint64_t virt) {
-    /* Single-core: nada que hacer, el caller ya hizo invlpg local */
+    /* Single-core: nothing to do, caller already did invlpg locally */
     if (active_cpus <= 1) return;
 
     uint64_t irq_flags;
     spin_lock_irqsave(&tlb_sd.lock, &irq_flags);
 
-    /* Configurar el estado compartido */
+    /* Set up shared state */
     tlb_sd.target_addr  = virt;
-    tlb_sd.pending_cpus = active_cpus - 1;  /* Excluir la CPU actual */
+    tlb_sd.pending_cpus = active_cpus - 1;  /* Exclude current CPU */
     tlb_sd.ack_count    = 0;
 
-    /* Barrera de memoria: asegurar que el estado es visible antes del IPI */
+    /* Memory barrier: ensure state is visible before sending IPI */
     asm volatile("mfence" ::: "memory");
 
-    /* Enviar IPI a todas las demas CPUs via LAPIC driver */
+    /* Send IPI to all other CPUs via LAPIC driver */
     if (lapic_is_enabled()) {
         lapic_send_ipi_all(IPI_TLB_SHOOTDOWN);
     }
 
-    /* Esperar a que todas las CPUs confirmen.
-     * Busy-wait con pause para no saturar el bus.
-     * Timeout explicito para evitar hang si una CPU no responde. */
+    /* Wait for all CPUs to acknowledge.
+     * Busy-wait with pause to avoid saturating the bus.
+     * Explicit timeout to prevent hang if a CPU doesn't respond. */
     uint64_t timeout = 0;
     while (__atomic_load_n(&tlb_sd.ack_count, __ATOMIC_ACQUIRE)
            < tlb_sd.pending_cpus) {
@@ -80,19 +80,19 @@ void tlb_shootdown_broadcast(uint64_t virt) {
     spin_unlock_irqrestore(&tlb_sd.lock, irq_flags);
 }
 
-/* ── IPI Handler: ejecutado en la CPU receptora ──────────────────── */
+/* ── IPI Handler: executed on the receiving CPU ──────────────────── */
 
 void tlb_shootdown_ipi_handler(void) {
-    /* Leer la direccion objetivo y ejecutar invlpg */
+    /* Read target address and execute invlpg */
     uint64_t addr = tlb_sd.target_addr;
     asm volatile("invlpg (%0)" :: "r"(addr) : "memory");
 
-    /* Confirmar que esta CPU ya invalido */
+    /* Acknowledge that this CPU has invalidated */
     __atomic_fetch_add(&tlb_sd.ack_count, 1, __ATOMIC_RELEASE);
 
-    /* EOI al LAPIC via driver.
-     * En single-core sin LAPIC activo, este handler nunca se invoca
-     * porque no hay IPI sin LAPIC, asi que el check es una proteccion extra. */
+    /* EOI to LAPIC via driver.
+     * On single-core without active LAPIC, this handler is never invoked
+     * because there are no IPIs without LAPIC, so the check is extra protection. */
     lapic_eoi();
 }
 

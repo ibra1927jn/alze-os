@@ -15,8 +15,8 @@
 #include "uart.h"
 #include <stdint.h>
 
-/* 4KB ring buffer (power-of-2 for branchless modulo) */
-RING_BUF_DEFINE(klog_ring, 4096);
+#define KLOG_BUFFER_SIZE  4096  /* Power-of-2 for branchless modulo */
+RING_BUF_DEFINE(klog_ring, KLOG_BUFFER_SIZE);
 static spinlock_t klog_lock = SPINLOCK_INIT;
 
 void klog_putchar(char c) {
