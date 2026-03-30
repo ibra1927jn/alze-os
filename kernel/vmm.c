@@ -16,7 +16,6 @@
 #include "vmm.h"
 #include "pmm.h"
 #include "memory.h"
-#include "string.h"
 #include "kprintf.h"
 #include "log.h"
 #include "panic.h"
