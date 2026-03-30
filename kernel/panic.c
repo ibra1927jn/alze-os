@@ -18,6 +18,9 @@
 #define RFLAGS_IF  (1 <<  9)   /* Interrupt Enable Flag */
 #define RFLAGS_OF  (1 << 11)   /* Overflow Flag */
 
+/* Number of stack qwords to dump on panic */
+#define PANIC_STACK_DUMP_ENTRIES  8
+
 __attribute__((noreturn))
 void kernel_panic(const char *msg, const char *file, int line) {
     /* Disable interrupts immediately */
@@ -70,10 +73,10 @@ void kernel_panic(const char *msg, const char *file, int line) {
     if (rflags & RFLAGS_OF) kprintf(" OF");
     kprintf(" ]\n");
 
-    /* Stack dump (top 8 qwords) */
-    kprintf(ANSI_YELLOW "\n  Stack dump (top 8 entries):\n" ANSI_RESET);
+    /* Stack dump (top qwords) */
+    kprintf(ANSI_YELLOW "\n  Stack dump (top %d entries):\n" ANSI_RESET, PANIC_STACK_DUMP_ENTRIES);
     uint64_t *stack = (uint64_t *)rsp;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < PANIC_STACK_DUMP_ENTRIES; i++) {
         kprintf("    [RSP+%02x] 0x%016lx\n", i * 8, stack[i]);
     }
 
