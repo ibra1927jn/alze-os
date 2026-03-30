@@ -22,6 +22,9 @@
 #define PCI_MAX_DEVICE    32
 #define PCI_MAX_FUNCTION  8
 
+/* Config space register alignment mask (dword-aligned access) */
+#define PCI_REG_ALIGN_MASK  0xFC
+
 /* ── Lectura/escritura PCI config space ─────────────────────────── */
 
 uint32_t pci_read32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset) {
@@ -30,12 +33,12 @@ uint32_t pci_read32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset) {
 }
 
 uint16_t pci_read16(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset) {
-    uint32_t val = pci_read32(bus, dev, func, offset & 0xFC);
+    uint32_t val = pci_read32(bus, dev, func, offset & PCI_REG_ALIGN_MASK);
     return (uint16_t)(val >> ((offset & 2) * 8));
 }
 
 uint8_t pci_read8(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset) {
-    uint32_t val = pci_read32(bus, dev, func, offset & 0xFC);
+    uint32_t val = pci_read32(bus, dev, func, offset & PCI_REG_ALIGN_MASK);
     return (uint8_t)(val >> ((offset & 3) * 8));
 }
 
