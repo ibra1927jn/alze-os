@@ -1,7 +1,19 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
-- [2026-03-30] | Heartbeat maintenance: VMM/IDT/console/PIC named constants | 100%
+- [2026-03-30] | Heartbeat maintenance: pass 13 magic number cleanup | 100%
+
+## Sesion 2026-03-30 (heartbeat pass 13)
+- refactor(ssp): replace magic numbers with named constants for canary and TSC mixing | 7870d33
+- refactor(kprintf): replace magic buffer sizes and pointer width with named constants | 34362d3
+- refactor(panic): define PANIC_STACK_DUMP_ENTRIES constant for stack dump loop | 624d287
+- refactor(kb): define named constants for scancode release bit and extended prefixes | 9b5eba2
+- refactor(cpuidle): define named constants for MWAIT CPUID bit and C1 hint | 95e6871
+- refactor(runtime_tests): name yield interval and IPC test message constants | ffdfe63
+- refactor(ext2): name max log block size and GDT block number constants | 095f760
+- refactor(pci): define PCI_REG_ALIGN_MASK for config space dword alignment | f5dc429
+- refactor(gdt): define GDT_FLAGS_NIBBLE and GDT_LIMIT_HIGH_MAX for granularity encoding | fb0746a
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Sesion 2026-03-30 (heartbeat pass 12)
 - refactor(vmm): replace magic numbers with named page-offset and table-entry constants | b6aa714
