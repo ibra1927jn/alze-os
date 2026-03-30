@@ -16,6 +16,11 @@
 #include "log.h"
 #include <stdint.h>
 
+/* ── Constants ───────────────────────────────────────────────── */
+
+#define CPUID_MWAIT_BIT   (1 << 3)  /* CPUID leaf 1, ECX bit 3: MONITOR/MWAIT */
+#define MWAIT_C1_HINT     0x00      /* C1 state hint for MWAIT instruction     */
+
 /* ── State ────────────────────────────────────────────────────── */
 
 static int has_mwait = 0;
@@ -37,7 +42,7 @@ void cpuidle_init(void) {
     /* Check CPUID leaf 1, ECX bit 3 = MONITOR/MWAIT */
     cpuid_leaf(1, &eax, &ebx, &ecx, &edx);
 
-    if (ecx & (1 << 3)) {
+    if (ecx & CPUID_MWAIT_BIT) {
         has_mwait = 1;
         deepest_state = IDLE_MWAIT;
         LOG_OK("cpuidle: MWAIT supported — deep idle enabled");
@@ -67,8 +72,8 @@ void cpu_idle(void) {
     if (has_mwait) {
         /* MONITOR: watch mwait_target for writes */
         asm volatile("monitor" :: "a"(&mwait_target), "c"(0), "d"(0));
-        /* MWAIT: enter C1 state (hint=0x00) */
-        asm volatile("mwait" :: "a"(0x00), "c"(0));
+        /* MWAIT: enter C1 state */
+        asm volatile("mwait" :: "a"(MWAIT_C1_HINT), "c"(0));
     } else {
         /* Classic HLT — wakes on any interrupt */
         asm volatile("hlt");
