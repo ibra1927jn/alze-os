@@ -1,7 +1,13 @@
 # PROGRESS.md — Estado del proyecto
 
 ## En curso
-- [2026-03-30] | Heartbeat maintenance: magic number cleanup, TIMER_TICK_MS consolidation, memset modernization | 100%
+- [2026-03-30] | Heartbeat maintenance: RFLAGS_IF constant, KB port naming, LAPIC calibration derivation | 100%
+
+## Sesion 2026-03-30 (heartbeat pass 11)
+- refactor(spinlock): replace magic number with named RFLAGS_IF constant | 350ec8b
+- refactor(kb): define named constants for PS/2 keyboard controller ports | 823f9c2
+- refactor(lapic): derive CALIBRATION_PIT_TICKS from PIT_BASE_FREQ constant | cbdb382
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Sesion 2026-03-30 (heartbeat pass 10)
 - refactor(kernel): define named constants for magic numbers in console, uart, pic | 6c94e09
