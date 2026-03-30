@@ -1,14 +1,14 @@
 /*
  * Anykernel OS — ext2 Filesystem (Read-Only) Implementation
  *
- * Lectura basica de ext2 sobre ramdisk. Soporta:
- *   - Parseo de superblock y group descriptor table
- *   - Lectura de inodes por numero
- *   - Listado de directorios
- *   - Lectura de archivos (bloques directos unicamente)
+ * Basic ext2 reading over ramdisk. Supports:
+ *   - Parsing of superblock and group descriptor table
+ *   - Reading inodes by number
+ *   - Directory listing
+ *   - File reading (direct blocks only)
  *
- * El ramdisk se carga como modulo de Limine al boot.
- * Se registra como filesystem en el VFS.
+ * The ramdisk is loaded as a Limine module at boot.
+ * It is registered as a filesystem in the VFS.
  */
 
 #include "ext2.h"
@@ -18,26 +18,26 @@
 #include "errno.h"
 #include "vfs.h"
 
-/* ── Estado global del filesystem ───────────────────────────────── */
+/* ── Global filesystem state ───────────────────────────────────── */
 
 static struct ext2_fs fs;
 static bool ext2_mounted = false;
 
-/* Forward declaration — definida al final del archivo */
+/* Forward declaration — defined at the end of the file */
 static void ext2_register_vfs(void);
 
-/* ── Helpers internos ───────────────────────────────────────────── */
+/* ── Internal helpers ───────────────────────────────────────────── */
 
-/* Obtener puntero a un bloque dentro del ramdisk */
+/* Get a pointer to a block within the ramdisk */
 static inline void *ext2_block_ptr(uint32_t block_num) {
     uint64_t offset = (uint64_t)block_num * fs.block_size;
     if (offset + fs.block_size > fs.disk_size) {
-        return 0; /* Fuera de rango */
+        return 0; /* Out of range */
     }
     return fs.disk + offset;
 }
 
-/* ── Inicializacion ─────────────────────────────────────────────── */
+/* ── Initialization ─────────────────────────────────────────────── */
 
 int ext2_init(void *ramdisk_base, uint64_t ramdisk_size) {
     if (!ramdisk_base || ramdisk_size < EXT2_SUPERBLOCK_OFFSET + sizeof(struct ext2_superblock)) {
@@ -48,17 +48,17 @@ int ext2_init(void *ramdisk_base, uint64_t ramdisk_size) {
     fs.disk = (uint8_t *)ramdisk_base;
     fs.disk_size = ramdisk_size;
 
-    /* Leer superblock desde offset 1024 */
+    /* Read superblock from offset 1024 */
     memcpy(&fs.sb, fs.disk + EXT2_SUPERBLOCK_OFFSET, sizeof(struct ext2_superblock));
 
-    /* Validar magic number */
+    /* Validate magic number */
     if (fs.sb.s_magic != EXT2_SUPER_MAGIC) {
         LOG_ERROR("ext2: bad magic 0x%x (expected 0x%x)",
                   fs.sb.s_magic, EXT2_SUPER_MAGIC);
         return -EINVAL;
     }
 
-    /* Calcular tamano de bloque (valid range: 0-6, i.e. 1K-64K) */
+    /* Calculate block size (valid range: 0-6, i.e. 1K-64K) */
     #define EXT2_MAX_LOG_BLOCK_SIZE  6  /* max shift: 1024 << 6 = 64KB */
     if (fs.sb.s_log_block_size > EXT2_MAX_LOG_BLOCK_SIZE) {
         LOG_ERROR("ext2: invalid s_log_block_size %u", fs.sb.s_log_block_size);
@@ -66,20 +66,20 @@ int ext2_init(void *ramdisk_base, uint64_t ramdisk_size) {
     }
     fs.block_size = EXT2_BASE_BLOCK_SIZE << fs.sb.s_log_block_size;
 
-    /* Tamano de inode: rev 0 usa 128 bytes fijo, rev >= 1 usa s_inode_size */
+    /* Inode size: rev 0 uses fixed 128 bytes, rev >= 1 uses s_inode_size */
     if (fs.sb.s_rev_level >= 1 && fs.sb.s_inode_size > 0) {
         fs.inode_size = fs.sb.s_inode_size;
     } else {
         fs.inode_size = EXT2_REV0_INODE_SIZE;
     }
 
-    /* Numero de block groups */
+    /* Number of block groups */
     fs.groups_count = (fs.sb.s_blocks_count + fs.sb.s_blocks_per_group - 1)
                       / fs.sb.s_blocks_per_group;
 
-    /* La GDT esta en el bloque siguiente al superblock.
-     * Si block_size == 1024, superblock esta en bloque 1, GDT en bloque 2.
-     * Si block_size >= 2048, superblock esta en bloque 0 (offset 1024), GDT en bloque 1. */
+    /* The GDT is in the block following the superblock.
+     * If block_size == 1024, superblock is in block 1, GDT in block 2.
+     * If block_size >= 2048, superblock is in block 0 (offset 1024), GDT in block 1. */
     #define EXT2_GDT_BLOCK_1K   2   /* GDT block when block_size == 1024 */
     #define EXT2_GDT_BLOCK_LARGE 1  /* GDT block when block_size >= 2048 */
     uint32_t gdt_block;
@@ -101,25 +101,25 @@ int ext2_init(void *ramdisk_base, uint64_t ramdisk_size) {
            fs.sb.s_magic, fs.block_size,
            fs.sb.s_inodes_count, fs.sb.s_blocks_count, fs.groups_count);
 
-    /* Registrar en VFS como dispositivo de bloque */
+    /* Register in VFS as a block device */
     ext2_register_vfs();
 
     return 0;
 }
 
-/* ── Lectura de inode ───────────────────────────────────────────── */
+/* ── Inode reading ───────────────────────────────────────────────── */
 
 int ext2_read_inode(uint32_t ino, struct ext2_inode *out) {
     if (!ext2_mounted) return -EIO;
     if (ino == 0 || ino > fs.sb.s_inodes_count) return -EINVAL;
 
-    /* Los inodes se numeran desde 1. Calcular grupo y offset. */
+    /* Inodes are numbered from 1. Calculate group and offset. */
     uint32_t group = (ino - 1) / fs.sb.s_inodes_per_group;
     uint32_t index = (ino - 1) % fs.sb.s_inodes_per_group;
 
     if (group >= fs.groups_count) return -EINVAL;
 
-    /* La inode table de este grupo empieza en bg_inode_table */
+    /* The inode table for this group starts at bg_inode_table */
     uint32_t inode_table_block = fs.gdt[group].bg_inode_table;
     uint64_t inode_offset = (uint64_t)inode_table_block * fs.block_size
                           + (uint64_t)index * fs.inode_size;
@@ -132,7 +132,7 @@ int ext2_read_inode(uint32_t ino, struct ext2_inode *out) {
     return 0;
 }
 
-/* ── Listado de directorio ──────────────────────────────────────── */
+/* ── Directory listing ──────────────────────────────────────────── */
 
 int ext2_list_dir(uint32_t dir_ino, ext2_dir_callback callback, void *ctx) {
     if (!ext2_mounted) return -EIO;
@@ -142,7 +142,7 @@ int ext2_list_dir(uint32_t dir_ino, ext2_dir_callback callback, void *ctx) {
     int ret = ext2_read_inode(dir_ino, &inode);
     if (ret < 0) return ret;
 
-    /* Verificar que es un directorio */
+    /* Verify that it is a directory */
     if ((inode.i_mode & EXT2_S_IFMT) != EXT2_S_IFDIR) {
         return -EINVAL;
     }
@@ -150,7 +150,7 @@ int ext2_list_dir(uint32_t dir_ino, ext2_dir_callback callback, void *ctx) {
     uint32_t size = inode.i_size;
     uint32_t bytes_read = 0;
 
-    /* Recorrer bloques directos del directorio */
+    /* Iterate over direct blocks of the directory */
     for (int i = 0; i < EXT2_NDIR_BLOCKS && bytes_read < size; i++) {
         uint32_t block = inode.i_block[i];
         if (block == 0) continue;
@@ -165,7 +165,7 @@ int ext2_list_dir(uint32_t dir_ino, ext2_dir_callback callback, void *ctx) {
         while (offset < remaining) {
             struct ext2_dir_entry *entry = (struct ext2_dir_entry *)(data + offset);
 
-            /* Validacion basica para evitar loops infinitos */
+            /* Basic validation to avoid infinite loops */
             if (entry->rec_len == 0 || entry->rec_len > remaining - offset) {
                 break;
             }
@@ -184,7 +184,7 @@ int ext2_list_dir(uint32_t dir_ino, ext2_dir_callback callback, void *ctx) {
     return 0;
 }
 
-/* ── Lectura de archivo ─────────────────────────────────────────── */
+/* ── File reading ──────────────────────────────────────────────── */
 
 int64_t ext2_read_file(uint32_t ino, void *buf, uint64_t offset, uint64_t count) {
     if (!ext2_mounted) return -EIO;
@@ -194,14 +194,14 @@ int64_t ext2_read_file(uint32_t ino, void *buf, uint64_t offset, uint64_t count)
     int ret = ext2_read_inode(ino, &inode);
     if (ret < 0) return ret;
 
-    /* Solo archivos regulares */
+    /* Regular files only */
     if ((inode.i_mode & EXT2_S_IFMT) != EXT2_S_IFREG) {
         return -EINVAL;
     }
 
     uint32_t file_size = inode.i_size;
 
-    /* Ajustar offset y count a los limites del archivo */
+    /* Adjust offset and count to file boundaries */
     if (offset >= file_size) return 0;
     if (count > file_size - offset) {
         count = file_size - offset;
@@ -211,12 +211,12 @@ int64_t ext2_read_file(uint32_t ino, void *buf, uint64_t offset, uint64_t count)
     uint64_t bytes_read = 0;
 
     while (bytes_read < count) {
-        /* Calcular en que bloque logico estamos */
+        /* Calculate which logical block we are in */
         uint64_t current_pos = offset + bytes_read;
         uint32_t block_index = (uint32_t)(current_pos / fs.block_size);
         uint32_t block_offset = (uint32_t)(current_pos % fs.block_size);
 
-        /* Solo bloques directos por ahora */
+        /* Direct blocks only for now */
         if (block_index >= EXT2_NDIR_BLOCKS) {
             LOG_WARN("ext2: file read hit indirect block limit (block %u)", block_index);
             break;
@@ -224,7 +224,7 @@ int64_t ext2_read_file(uint32_t ino, void *buf, uint64_t offset, uint64_t count)
 
         uint32_t block_num = inode.i_block[block_index];
         if (block_num == 0) {
-            /* Bloque sparse (agujero): llenar con ceros */
+            /* Sparse block (hole): fill with zeros */
             uint32_t chunk = fs.block_size - block_offset;
             if (chunk > count - bytes_read) chunk = (uint32_t)(count - bytes_read);
             memset(dst + bytes_read, 0, chunk);
@@ -235,7 +235,7 @@ int64_t ext2_read_file(uint32_t ino, void *buf, uint64_t offset, uint64_t count)
         uint8_t *block_data = (uint8_t *)ext2_block_ptr(block_num);
         if (!block_data) return -EIO;
 
-        /* Copiar datos de este bloque */
+        /* Copy data from this block */
         uint32_t chunk = fs.block_size - block_offset;
         if (chunk > count - bytes_read) chunk = (uint32_t)(count - bytes_read);
 
@@ -246,7 +246,7 @@ int64_t ext2_read_file(uint32_t ino, void *buf, uint64_t offset, uint64_t count)
     return (int64_t)bytes_read;
 }
 
-/* ── Diagnostico ────────────────────────────────────────────────── */
+/* ── Diagnostics ────────────────────────────────────────────────── */
 
 void ext2_dump_info(void) {
     if (!ext2_mounted) {
@@ -267,12 +267,12 @@ void ext2_dump_info(void) {
     kprintf("  First data blk:  %u\n", fs.sb.s_first_data_block);
 }
 
-/* ── Callback para listar root ──────────────────────────────────── */
+/* ── Callback for listing root ──────────────────────────────────── */
 
 static void print_dir_entry(const char *name, uint32_t name_len,
                             uint32_t inode, uint8_t file_type, void *ctx) {
     (void)ctx;
-    /* Imprimir nombre con longitud conocida (no null-terminated en disco) */
+    /* Print name with known length (not null-terminated on disk) */
     const char *type_str;
     switch (file_type) {
         case EXT2_FT_REG_FILE: type_str = "FILE"; break;
@@ -282,7 +282,7 @@ static void print_dir_entry(const char *name, uint32_t name_len,
     }
 
     kprintf("  [%4s] inode=%u  ", type_str, inode);
-    /* Imprimir nombre caracter por caracter (no es null-terminated) */
+    /* Print name character by character (not null-terminated) */
     for (uint32_t i = 0; i < name_len; i++) {
         kprintf("%c", name[i]);
     }
@@ -302,13 +302,13 @@ void ext2_list_root(void) {
     }
 }
 
-/* ── VFS integration: file_ops para archivos ext2 ───────────────── */
+/* ── VFS integration: file_ops for ext2 files ───────────────────── */
 
 static int64_t ext2_vfs_read(struct vnode *vn, void *buf, uint64_t count) {
     if (!vn || !vn->private_data) return -EINVAL;
-    /* Usamos private_data como puntero al numero de inode (cast directo) */
+    /* We use private_data as a pointer to the inode number (direct cast) */
     uint32_t ino = (uint32_t)(uint64_t)vn->private_data;
-    /* Lectura desde offset 0 por simplicidad (VFS todavia no tiene seek) */
+    /* Read from offset 0 for simplicity (VFS does not have seek yet) */
     return ext2_read_file(ino, buf, 0, count);
 }
 
@@ -316,11 +316,11 @@ static struct file_ops ext2_file_ops = {
     .open  = 0,
     .close = 0,
     .read  = ext2_vfs_read,
-    .write = 0,  /* Solo lectura */
+    .write = 0,  /* Read-only */
     .ioctl = 0,
 };
 
-/* Registrar el filesystem ext2 como dispositivo de bloque en VFS */
+/* Register the ext2 filesystem as a block device in VFS */
 static void ext2_register_vfs(void) {
     vfs_register_device("ext2", VN_BLOCKDEV, &ext2_file_ops,
                         (void *)(uint64_t)EXT2_ROOT_INO);
