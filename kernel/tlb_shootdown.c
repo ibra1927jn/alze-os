@@ -25,6 +25,9 @@ struct tlb_shootdown_state tlb_sd = {
     .lock         = SPINLOCK_INIT,
 };
 
+/* Busy-wait iteration limit before declaring a shootdown timeout */
+#define TLB_SHOOTDOWN_TIMEOUT  1000000
+
 /* Numero de CPUs activas. BSP = 1. SMP startup incrementa esto. */
 static volatile uint32_t active_cpus = 1;
 
@@ -67,7 +70,7 @@ void tlb_shootdown_broadcast(uint64_t virt) {
     while (__atomic_load_n(&tlb_sd.ack_count, __ATOMIC_ACQUIRE)
            < tlb_sd.pending_cpus) {
         asm volatile("pause");
-        if (++timeout > 1000000) {
+        if (++timeout > TLB_SHOOTDOWN_TIMEOUT) {
             kprintf("[TLB] shootdown timeout: %u/%u CPUs acked\n",
                     tlb_sd.ack_count, tlb_sd.pending_cpus);
             break;
