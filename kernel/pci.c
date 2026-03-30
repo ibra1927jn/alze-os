@@ -1,11 +1,11 @@
 /*
  * Anykernel OS — PCI Configuration Space Implementation
  *
- * Usa mecanismo 1 (I/O ports 0xCF8/0xCFC) para acceder al
- * espacio de configuracion PCI de cualquier dispositivo.
+ * Uses mechanism 1 (I/O ports 0xCF8/0xCFC) to access the
+ * PCI configuration space of any device.
  *
- * Escanea buses 0-255, devices 0-31, functions 0-7.
- * En la practica, la mayoria de sistemas solo usan bus 0.
+ * Scans buses 0-255, devices 0-31, functions 0-7.
+ * In practice, most systems only use bus 0.
  */
 
 #include "pci.h"
@@ -25,7 +25,7 @@
 /* Config space register alignment mask (dword-aligned access) */
 #define PCI_REG_ALIGN_MASK  0xFC
 
-/* ── Lectura/escritura PCI config space ─────────────────────────── */
+/* ── PCI config space read/write ────────────────────────────────── */
 
 uint32_t pci_read32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset) {
     outl(PCI_CONFIG_ADDR, pci_config_addr(bus, dev, func, offset));
@@ -63,17 +63,17 @@ void pci_write8(uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset, uint8_t 
     pci_write32(bus, dev, func, offset & PCI_REG_ALIGN_MASK, dword);
 }
 
-/* ── Busqueda de dispositivo por clase ──────────────────────────── */
+/* ── Device search by class ────────────────────────────────────── */
 
 int pci_find_device(uint8_t class_code, uint8_t subclass, uint8_t prog_if,
                     struct pci_device *out) {
-    /* Escaneo brute-force: bus 0-255, device 0-31, function 0-7 */
+    /* Brute-force scan: bus 0-255, device 0-31, function 0-7 */
     for (uint32_t bus = 0; bus < PCI_MAX_BUS; bus++) {
         for (uint8_t dev = 0; dev < PCI_MAX_DEVICE; dev++) {
             for (uint8_t func = 0; func < PCI_MAX_FUNCTION; func++) {
                 uint16_t vendor = pci_read16((uint8_t)bus, dev, func, PCI_VENDOR_ID);
                 if (vendor == PCI_VENDOR_INVALID || vendor == 0x0000) {
-                    if (func == 0) break;  /* No hay device, saltar al siguiente */
+                    if (func == 0) break;  /* No device present, skip to next */
                     continue;
                 }
 
@@ -93,7 +93,7 @@ int pci_find_device(uint8_t class_code, uint8_t subclass, uint8_t prog_if,
                         out->prog_if    = pif;
                         out->header_type = pci_read8((uint8_t)bus, dev, func, PCI_HEADER_TYPE);
 
-                        /* Leer los 6 BARs */
+                        /* Read all 6 BARs */
                         for (int i = 0; i < 6; i++) {
                             out->bar[i] = pci_read32((uint8_t)bus, dev, func,
                                                      PCI_BAR0 + (uint8_t)(i * 4));
@@ -102,7 +102,7 @@ int pci_find_device(uint8_t class_code, uint8_t subclass, uint8_t prog_if,
                     return 0;
                 }
 
-                /* Si no es multi-function, no seguir con func > 0 */
+                /* If not multi-function, do not continue with func > 0 */
                 if (func == 0) {
                     uint8_t hdr = pci_read8((uint8_t)bus, dev, func, PCI_HEADER_TYPE);
                     if (!(hdr & PCI_HEADER_MULTIFUNC)) break;  /* Bit 7: multi-function */
@@ -114,7 +114,7 @@ int pci_find_device(uint8_t class_code, uint8_t subclass, uint8_t prog_if,
     return -ENOENT;
 }
 
-/* ── Enumeracion completa (diagnostic) ──────────────────────────── */
+/* ── Full enumeration (diagnostic) ──────────────────────────────── */
 
 void pci_enumerate(void) {
     kprintf("\n--- PCI Device Enumeration ---\n");

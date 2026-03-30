@@ -178,7 +178,7 @@ uint64_t pmm_alloc_pages(uint32_t order) {
         pmm.free_pages += (1UL << current_order);  /* Split half returns to free */
     }
 
-    /* Mark the block as used, ref_count = 1 (primer propietario) */
+    /* Mark the block as used, ref_count = 1 (first owner) */
     block->order = order;
     block->flags = PAGE_USED;
     block->ref_count = 1;
@@ -231,7 +231,7 @@ void pmm_free_pages(uint64_t phys_addr, uint32_t order) {
 
     pg->flags = PAGE_FREE | PAGE_BUDDY_HEAD;
     pg->order = order;
-    pg->ref_count = 0;  /* Pagina libre no tiene referencias */
+    pg->ref_count = 0;  /* Free page has no references */
     pmm.free_pages += (1UL << order);
     pmm.used_pages -= (1UL << order);
 
@@ -345,14 +345,14 @@ uint32_t pmm_ref_dec(uint64_t phys_addr) {
 }
 
 /*
- * Lee el contador de referencias actual (para diagnostico o decisiones COW).
+ * Read the current reference count (for diagnostics or COW decisions).
  */
 uint32_t pmm_ref_get(uint64_t phys_addr) {
     PMM_ASSERT((phys_addr & (PAGE_SIZE - 1)) == 0);
     uint64_t pfn = phys_to_pfn(phys_addr);
     PMM_ASSERT(pfn < pmm.total_pfns);
 
-    /* Proteger lectura con lock, igual que ref_inc/ref_dec */
+    /* Protect read with lock, same as ref_inc/ref_dec */
 #ifndef PMM_USERSPACE_TEST
     uint64_t irq_flags;
     spin_lock_irqsave(&pmm_lock, &irq_flags);
