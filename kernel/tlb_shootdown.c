@@ -12,7 +12,6 @@
 #include "tlb_shootdown.h"
 #include "lapic.h"
 #include "percpu.h"
-#include "kprintf.h"
 #include "log.h"
 
 /* ── Global shootdown state ─────────────────────────────────── */
@@ -70,8 +69,8 @@ void tlb_shootdown_broadcast(uint64_t virt) {
            < tlb_sd.pending_cpus) {
         asm volatile("pause");
         if (++timeout > TLB_SHOOTDOWN_TIMEOUT) {
-            kprintf("[TLB] shootdown timeout: %u/%u CPUs acked\n",
-                    tlb_sd.ack_count, tlb_sd.pending_cpus);
+            LOG_WARN("TLB: shootdown timeout: %u/%u CPUs acked",
+                     tlb_sd.ack_count, tlb_sd.pending_cpus);
             break;
         }
     }
