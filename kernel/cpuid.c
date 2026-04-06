@@ -6,6 +6,7 @@
  */
 
 #include "cpuid.h"
+#include "cpu.h"
 #include "kprintf.h"
 #include "log.h"
 #include <stdint.h>
@@ -48,22 +49,13 @@
 #define CPUID_BRAND_LEAF_START   0x80000002
 #define CPUID_BRAND_LEAF_END     0x80000004
 
-/* ── CPUID wrapper ───────────────────────────────────────────── */
-
-static inline void cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx,
-                         uint32_t *ecx, uint32_t *edx) {
-    asm volatile("cpuid"
-        : "=a"(*eax), "=b"(*ebx), "=c"(*ecx), "=d"(*edx)
-        : "a"(leaf), "c"(0));
-}
-
 /* ── Public API ──────────────────────────────────────────────── */
 
 void cpuid_detect(void) {
     uint32_t eax, ebx, ecx, edx;
 
     /* Vendor string (leaf 0) */
-    cpuid(0, &eax, &ebx, &ecx, &edx);
+    cpuid_leaf(0, &eax, &ebx, &ecx, &edx);
     char vendor[13];
     *(uint32_t *)&vendor[0] = ebx;
     *(uint32_t *)&vendor[4] = edx;
@@ -76,7 +68,7 @@ void cpuid_detect(void) {
 
     /* Feature flags (leaf 1) */
     if (max_leaf >= 1) {
-        cpuid(1, &eax, &ebx, &ecx, &edx);
+        cpuid_leaf(1, &eax, &ebx, &ecx, &edx);
 
         uint32_t family = ((eax >> CPUID_FAMILY_SHIFT) & CPUID_FAMILY_MASK)
                         + ((eax >> CPUID_EXT_FAMILY_SHIFT) & CPUID_EXT_FAMILY_MASK);
@@ -104,9 +96,9 @@ void cpuid_detect(void) {
     }
 
     /* Extended features (leaf 0x80000001) — NX bit */
-    cpuid(CPUID_EXT_LEAF, &eax, &ebx, &ecx, &edx);
+    cpuid_leaf(CPUID_EXT_LEAF, &eax, &ebx, &ecx, &edx);
     if (eax >= CPUID_EXT_FEATURES_LEAF) {
-        cpuid(CPUID_EXT_FEATURES_LEAF, &eax, &ebx, &ecx, &edx);
+        cpuid_leaf(CPUID_EXT_FEATURES_LEAF, &eax, &ebx, &ecx, &edx);
         if (edx & CPUID_EXT_EDX_NX) {
             LOG_OK("  NX (No-Execute) bit supported");
         }
@@ -119,9 +111,9 @@ void cpuid_detect(void) {
     if (eax >= CPUID_BRAND_LEAF_END) {
         char brand[49];
         uint32_t *b = (uint32_t *)brand;
-        cpuid(CPUID_BRAND_LEAF_START + 0, &b[0], &b[1], &b[2], &b[3]);
-        cpuid(CPUID_BRAND_LEAF_START + 1, &b[4], &b[5], &b[6], &b[7]);
-        cpuid(CPUID_BRAND_LEAF_START + 2, &b[8], &b[9], &b[10], &b[11]);
+        cpuid_leaf(CPUID_BRAND_LEAF_START + 0, &b[0], &b[1], &b[2], &b[3]);
+        cpuid_leaf(CPUID_BRAND_LEAF_START + 1, &b[4], &b[5], &b[6], &b[7]);
+        cpuid_leaf(CPUID_BRAND_LEAF_START + 2, &b[8], &b[9], &b[10], &b[11]);
         brand[48] = '\0';
 
         /* Skip leading spaces */
