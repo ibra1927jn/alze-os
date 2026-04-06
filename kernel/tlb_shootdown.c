@@ -11,7 +11,6 @@
 
 #include "tlb_shootdown.h"
 #include "lapic.h"
-#include "memory.h"
 #include "percpu.h"
 #include "kprintf.h"
 #include "log.h"

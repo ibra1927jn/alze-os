@@ -9,7 +9,6 @@
 
 #include "idt.h"
 #include "kprintf.h"
-#include "panic.h"
 #include "gdt.h"
 #include "string.h"
 #include "pic.h"

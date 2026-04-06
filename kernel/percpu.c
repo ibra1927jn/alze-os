@@ -6,7 +6,6 @@
  */
 
 #include "percpu.h"
-#include "kmalloc.h"
 #include "log.h"
 #include "string.h"
 
