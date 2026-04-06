@@ -20,6 +20,16 @@
 #include "compiler.h"
 #include "log.h"
 
+/* Record ownership when acquiring a mutex (called with waiters.lock held) */
+static inline void mutex_set_owner(struct mutex *m) {
+    struct task *cur = task_current();
+    m->locked = true;
+    m->owner = cur;
+    m->owner_tid = cur->tid;
+    m->saved_priority = cur->priority;
+    m->priority_boosted = false;
+}
+
 /* ── mutex_lock with priority inheritance ────────────────────── */
 
 void mutex_lock(struct mutex *m) {
@@ -28,12 +38,7 @@ void mutex_lock(struct mutex *m) {
         spin_lock_irqsave(&m->waiters.lock, &irq_flags);
 
         if (likely(!m->locked)) {
-            /* Acquired! Record ownership */
-            m->locked = true;
-            m->owner = task_current();
-            m->owner_tid = task_current()->tid;
-            m->saved_priority = task_current()->priority;
-            m->priority_boosted = false;
+            mutex_set_owner(m);
             spin_unlock_irqrestore(&m->waiters.lock, irq_flags);
             return;
         }
@@ -99,11 +104,7 @@ bool mutex_trylock(struct mutex *m) {
     spin_lock_irqsave(&m->waiters.lock, &irq_flags);
 
     if (likely(!m->locked)) {
-        m->locked = true;
-        m->owner = task_current();
-        m->owner_tid = task_current()->tid;
-        m->saved_priority = task_current()->priority;
-        m->priority_boosted = false;
+        mutex_set_owner(m);
         spin_unlock_irqrestore(&m->waiters.lock, irq_flags);
         return true;
     }
