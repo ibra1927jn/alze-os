@@ -1,7 +1,12 @@
 # PROGRESS.md — Project Status
 
 ## In progress
-- [2026-04-06] | Heartbeat maintenance: pass 19 magic-number cleanup | 100%
+- [2026-04-06] | Heartbeat maintenance: pass 20 function extraction | 100%
+
+## Session 2026-04-06 (heartbeat pass 20)
+- refactor(kmalloc): extract kfree_large helper from kfree (99 → 75 lines) | a0698b9
+- refactor(vmm): extract vmm_walk_all_entries to deduplicate page-table traversal in vmm_dump_tables/vmm_audit_wx | 762f1b2
+- Build: clean (0 errors, 0 warnings), Tests: 29/29 passing (unchanged)
 
 ## Session 2026-04-06 (heartbeat pass 19)
 - refactor(kernel): replace magic 10 (PIT tick period) with TIMER_TICK_MS in sched.c, main.c, runtime_tests.c | 8902699
