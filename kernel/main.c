@@ -197,74 +197,62 @@ static _Noreturn void idle_loop(void) {
     }
 }
 
-/* ── Kernel main ──────────────────────────────────────────────── */
+/* ── Phase: early hardware (UART, SSP, CPU, GDT, IDT, PIC/PIT) ── */
 
-void _start(void) {
-
-    /* 1. UART — must be first */
+static void init_early_hw(void) {
     uart_init();
     LOG_OK("UART COM1 initialized at 115200 baud");
 
-    /* 2. SSP — randomize stack canary */
     ssp_init();
     LOG_OK("Stack canary randomized (RDTSC)");
 
-    /* 3. CPU identification */
     cpuid_detect();
 
-    /* 4. Verify Limine protocol */
     KASSERT(LIMINE_BASE_REVISION_SUPPORTED);
     LOG_OK("Limine base revision OK");
 
-    /* 5. GDT + TSS */
     gdt_init();
     LOG_OK("GDT loaded (7 entries, TSS with RSP0 + IST1)");
 
-    /* 6. IDT — catch exceptions + handle IRQs */
     idt_init();
     LOG_OK("IDT loaded (#DE #UD #DF #GP #PF + IRQ0/1 + LAPIC timer/IPI)");
 
-    /* 6b. Per-CPU data — MUST be before sti (sched_tick reads GS) */
+    /* Per-CPU data — MUST be before sti (sched_tick reads GS) */
     percpu_init_bsp();
 
-    /* 7. PIC + PIT — hardware interrupt infrastructure */
     pic_init();
     pit_init(1000 / TIMER_TICK_MS);
-    pic_unmask(IRQ_TIMER);  /* Enable timer IRQ */
-    asm volatile("sti");    /* ENABLE INTERRUPTS! */
+    pic_unmask(IRQ_TIMER);
+    asm volatile("sti");
     LOG_OK("PIC remapped, PIT at %u Hz, interrupts ENABLED", 1000 / TIMER_TICK_MS);
+}
 
-    /* 8. HHDM */
+/* ── Phase: memory subsystems (HHDM, PMM, VMM, VMA, HAL) ──────── */
+
+static void init_memory(void) {
     KASSERT(hhdm_request.response != NULL);
     hhdm_offset = hhdm_request.response->offset;
     LOG_INFO("HHDM offset: 0x%016lx", hhdm_offset);
 
-    /* 9. Memory map */
     KASSERT(memmap_request.response != NULL);
     memmap_resp_saved = memmap_request.response;
     print_memory_map(memmap_request.response);
 
-    /* 10. PMM — Physical Memory Manager (Buddy Allocator) */
     pmm_init(memmap_request.response, hhdm_offset);
     pmm_dump_stats();
 
-    /* 11. VMM — Virtual Memory Manager (Paging) */
     vmm_init();
     vmm_dump_tables();
 
-    /* 11b. VMA — Virtual Memory Areas */
     vma_init_kernel();
-
-    /* 11c. HAL — Hardware Abstraction Layer */
     hal_init();
-
-    /* 11d. CPU Idle States */
     cpuidle_init();
-
-    /* 11e. W^X Audit */
     vmm_audit_wx();
+}
 
-    /* 12. Framebuffer Console */
+/* ── Phase: devices and filesystems ──────────────────────────────── */
+
+static void init_devices(void) {
     if (fb_request.response && fb_request.response->framebuffer_count > 0) {
         struct limine_framebuffer *fb = fb_request.response->framebuffers[0];
         KASSERT(fb != NULL);
@@ -274,49 +262,45 @@ void _start(void) {
                fb->width, fb->height, fb->bpp);
     }
 
-    /* 13. Keyboard */
     kb_init();
 
-    /* 13b. VFS + devfs */
     vfs_init();
     devfs_init();
 
-    /* 13c. Memory Pressure + Watchdog */
     mempressure_init();
     watchdog_init();
 
-    /* 13d. LAPIC */
     lapic_init();
-
-    /* 13e. TLB Shootdown */
     tlb_shootdown_init();
 
-    /* 13f. Ramdisk + ext2 */
     ramdisk_init();
 
-    /* 13g. PCI + xHCI */
     pci_enumerate();
     xhci_init();
+}
 
-    /* 14. Self-tests */
+/* ── Kernel main ──────────────────────────────────────────────── */
+
+void _start(void) {
+    init_early_hw();
+    init_memory();
+    init_devices();
+
+    /* Self-tests */
     register_selftests();
     int failures = run_all_selftests();
 
-    /* 15. Boot memory report */
+    /* Boot report */
     print_boot_memory_report();
-
     kmalloc_dump_stats();
-
-    /* Banner */
     print_boot_banner(failures);
 
-    /* ── Step 16: Scheduler ────────────────────────── */
+    /* Scheduler */
     sched_init();
     LOG_OK("Scheduler initialized (per-CPU via GS)");
 
     run_runtime_tests();
 
     LOG_INFO("System ready. Init task handling keyboard.");
-
     idle_loop();
 }
