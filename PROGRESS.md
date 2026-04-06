@@ -1,7 +1,14 @@
 # PROGRESS.md — Project Status
 
 ## In progress
-- [2026-04-06] | Heartbeat maintenance: pass 20 function extraction | 100%
+- [2026-04-06] | Heartbeat maintenance: pass 21 deduplication & extraction | 100%
+
+## Session 2026-04-06 (heartbeat pass 21)
+- refactor(main): extract init_early_hw, init_memory, init_devices from _start (121 → 18 lines) | d9f7a48
+- refactor(xhci): extract xhci_wait_bits helper to deduplicate 3 timeout loops | e0654b3
+- refactor(ext2): move inline #defines to ext2.h for reusability | eb86510
+- refactor(mutex): extract mutex_set_owner to deduplicate lock/trylock acquire path | 43155f3
+- Build: clean (0 errors, 0 warnings), Tests: 29/29 passing (unchanged)
 
 ## Session 2026-04-06 (heartbeat pass 20)
 - refactor(kmalloc): extract kfree_large helper from kfree (99 → 75 lines) | a0698b9
