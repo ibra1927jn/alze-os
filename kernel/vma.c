@@ -4,7 +4,6 @@
 
 #include "vma.h"
 #include "string.h"
-#include "kprintf.h"
 #include "log.h"
 #include "kmalloc.h"
 #include "errno.h"
@@ -122,17 +121,17 @@ static const char *vma_type_str(enum vma_type t) {
 }
 
 void vma_dump(struct vm_space *vs) {
-    kprintf("  VMA regions (%u):\n", vs->count);
+    LOG_INFO("  VMA regions (%u):", vs->count);
     struct list_node *pos;
     list_for_each(pos, &vs->regions) {
         struct vma *v = container_of(pos, struct vma, node);
-        kprintf("    0x%016lx - 0x%016lx  [%c%c%c] %-6s %s\n",
-                v->start, v->end,
-                (v->perms & VMA_PERM_READ)  ? 'R' : '-',
-                (v->perms & VMA_PERM_WRITE) ? 'W' : '-',
-                (v->perms & VMA_PERM_EXEC)  ? 'X' : '-',
-                vma_type_str(v->type),
-                v->name);
+        LOG_INFO("    0x%016lx - 0x%016lx  [%c%c%c] %-6s %s",
+                 v->start, v->end,
+                 (v->perms & VMA_PERM_READ)  ? 'R' : '-',
+                 (v->perms & VMA_PERM_WRITE) ? 'W' : '-',
+                 (v->perms & VMA_PERM_EXEC)  ? 'X' : '-',
+                 vma_type_str(v->type),
+                 v->name);
     }
 }
 
