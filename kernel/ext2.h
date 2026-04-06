@@ -22,6 +22,9 @@
 #define EXT2_SUPERBLOCK_OFFSET 1024   /* Superblock starts at byte 1024 */
 #define EXT2_BASE_BLOCK_SIZE   1024   /* block_size = EXT2_BASE_BLOCK_SIZE << s_log_block_size */
 #define EXT2_REV0_INODE_SIZE   128    /* Default inode size for revision 0 */
+#define EXT2_MAX_LOG_BLOCK_SIZE 6    /* max shift: 1024 << 6 = 64KB      */
+#define EXT2_GDT_BLOCK_1K      2    /* GDT block when block_size == 1024 */
+#define EXT2_GDT_BLOCK_LARGE   1    /* GDT block when block_size >= 2048 */
 
 /* Inode types (i_mode field, bits 12-15) */
 #define EXT2_S_IFREG  0x8000  /* Regular file */
