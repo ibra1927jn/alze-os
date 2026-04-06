@@ -44,8 +44,6 @@
 
 /* PIT 16-bit counter maximum value */
 #define PIT_MAX_COUNT         65535  /* 16-bit max (~55ms at 1.193MHz)            */
-#define PIT_MAX_COUNT_LO      0xFF   /* Low byte of max count for stop mode       */
-#define PIT_MAX_COUNT_HI      0xFF   /* High byte of max count for stop mode      */
 
 /* ── PIC initialization ─────────────────────────────────────── */
 
@@ -121,14 +119,19 @@ static struct {
 
 static int timer_cb_count = 0;
 
+/* Write a 16-bit value to PIT channel 0 as two consecutive byte writes */
+static inline void pit_write16(uint16_t val) {
+    outb(PIT_CHANNEL0, (uint8_t)(val & 0xFF));
+    outb(PIT_CHANNEL0, (uint8_t)((val >> 8) & 0xFF));
+}
+
 void pit_init(uint32_t frequency_hz) {
     pit_freq = frequency_hz;
     uint16_t divisor = (uint16_t)(PIT_BASE_FREQ / frequency_hz);
 
     /* Channel 0, Access: lobyte/hibyte, Mode 2 (rate generator) */
     outb(PIT_CMD, PIT_CMD_CH0_RATE_GEN);
-    outb(PIT_CHANNEL0, (uint8_t)(divisor & 0xFF));
-    outb(PIT_CHANNEL0, (uint8_t)((divisor >> 8) & 0xFF));
+    pit_write16(divisor);
     pit_oneshot_mode = 0;
 }
 
@@ -149,8 +152,7 @@ void pit_set_oneshot(uint32_t ticks) {
 
     /* Channel 0, Access: lobyte/hibyte, Mode 0 (one-shot) */
     outb(PIT_CMD, PIT_CMD_CH0_ONESHOT);
-    outb(PIT_CHANNEL0, (uint8_t)(ticks & 0xFF));
-    outb(PIT_CHANNEL0, (uint8_t)((ticks >> 8) & 0xFF));
+    pit_write16((uint16_t)ticks);
     pit_oneshot_mode = 1;
 }
 
@@ -158,8 +160,7 @@ void pit_stop(void) {
     /* Program PIT with max count in one-shot mode — effectively stopped.
      * The CPU will only wake on keyboard/external IRQs. */
     outb(PIT_CMD, PIT_CMD_CH0_ONESHOT);
-    outb(PIT_CHANNEL0, PIT_MAX_COUNT_LO);
-    outb(PIT_CHANNEL0, PIT_MAX_COUNT_HI);
+    pit_write16(PIT_MAX_COUNT);
     pit_oneshot_mode = 2;
 }
 
