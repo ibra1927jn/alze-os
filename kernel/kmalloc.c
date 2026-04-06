@@ -252,33 +252,40 @@ static void slab_return_slot(void *slot, struct slab_header *slab, int cls_idx) 
     }
 }
 
+/* ── kfree helpers ────────────────────────────────────────────── */
+
+/* Free a large (> SLAB_MAX_SIZE) allocation that was page-allocated.
+ * Returns true if ptr was a large allocation, false otherwise. */
+static bool kfree_large(void *ptr) {
+    uint64_t addr = (uint64_t)ptr;
+    if (((addr - 8) & (PAGE_SIZE - 1)) != 0)
+        return false;
+
+    uint64_t irq_flags;
+    spin_lock_irqsave(&large_lock, &irq_flags);
+    void *base = (void *)(addr - 8);
+    uint32_t order = (uint32_t)(*(uint64_t *)base);
+    /* Validate that order was not corrupted before using it */
+    if (order > PMM_MAX_ORDER) {
+        kprintf("[kmalloc] corrupted large header: order=%u\n", order);
+        spin_unlock_irqrestore(&large_lock, irq_flags);
+        return true;  /* Was large, but corrupted — do not free */
+    }
+    memset(base, POISON_BYTE, (1UL << order) * PAGE_SIZE);
+    uint64_t phys = virt_to_phys(base);
+    pmm_free_pages(phys, order);
+    large_frees++;
+    spin_unlock_irqrestore(&large_lock, irq_flags);
+    return true;
+}
+
 /* ── kfree ────────────────────────────────────────────────────── */
 
 void kfree(void *ptr) {
     if (ptr == NULL) return;
 
     /* Check if this is a large allocation (page-aligned - 8 bytes) */
-    uint64_t addr = (uint64_t)ptr;
-
-    if (((addr - 8) & (PAGE_SIZE - 1)) == 0) {
-        /* Large free: use large_lock */
-        uint64_t irq_flags;
-        spin_lock_irqsave(&large_lock, &irq_flags);
-        void *base = (void *)(addr - 8);
-        uint32_t order = (uint32_t)(*(uint64_t *)base);
-        /* Validate that order was not corrupted before using it */
-        if (order > PMM_MAX_ORDER) {
-            kprintf("[kmalloc] corrupted large header: order=%u\n", order);
-            spin_unlock_irqrestore(&large_lock, irq_flags);
-            return;  /* Do not free with invalid order */
-        }
-        memset(base, POISON_BYTE, (1UL << order) * PAGE_SIZE);
-        uint64_t phys = virt_to_phys(base);
-        pmm_free_pages(phys, order);
-        large_frees++;
-        spin_unlock_irqrestore(&large_lock, irq_flags);
-        return;
-    }
+    if (kfree_large(ptr)) return;
 
     /* ── Double-free detection (OpenBSD hardened malloc) ────────── */
     struct slab_header *slab = slab_from_ptr(ptr);
