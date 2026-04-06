@@ -8,7 +8,6 @@
 #include "vfs.h"
 #include "string.h"
 #include "log.h"
-#include "compiler.h"
 #include "rwlock.h"
 #include "bitmap_alloc.h"
 #include "errno.h"

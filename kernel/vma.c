@@ -6,7 +6,6 @@
 #include "string.h"
 #include "kprintf.h"
 #include "log.h"
-#include "compiler.h"
 #include "kmalloc.h"
 #include "errno.h"
 

@@ -4,7 +4,6 @@
 
 #include "workqueue_def.h"
 #include "log.h"
-#include "compiler.h"
 
 /* ── Global system work queue ────────────────────────────────── */
 
