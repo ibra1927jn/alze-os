@@ -243,41 +243,27 @@ void _start(void) {
     memmap_resp_saved = memmap_request.response;
     print_memory_map(memmap_request.response);
 
-    /* ─────────────────────────────────────────────────────────────
-     * 10. PMM — Physical Memory Manager (Buddy Allocator)
-     * ───────────────────────────────────────────────────────────── */
+    /* 10. PMM — Physical Memory Manager (Buddy Allocator) */
     pmm_init(memmap_request.response, hhdm_offset);
     pmm_dump_stats();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 11. VMM — Virtual Memory Manager (Paging)
-     * ───────────────────────────────────────────────────────────── */
+    /* 11. VMM — Virtual Memory Manager (Paging) */
     vmm_init();
     vmm_dump_tables();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 11b. VMA — Virtual Memory Areas
-     * ───────────────────────────────────────────────────────────── */
+    /* 11b. VMA — Virtual Memory Areas */
     vma_init_kernel();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 11c. HAL — Hardware Abstraction Layer
-     * ───────────────────────────────────────────────────────────── */
+    /* 11c. HAL — Hardware Abstraction Layer */
     hal_init();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 11d. CPU Idle States (Linux cpuidle + macOS Power Nap)
-     * ───────────────────────────────────────────────────────────── */
+    /* 11d. CPU Idle States */
     cpuidle_init();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 11e. W^X Audit (OpenBSD + macOS Hardened Runtime)
-     * ───────────────────────────────────────────────────────────── */
+    /* 11e. W^X Audit */
     vmm_audit_wx();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 12. Framebuffer Console
-     * ───────────────────────────────────────────────────────────── */
+    /* 12. Framebuffer Console */
     if (fb_request.response && fb_request.response->framebuffer_count > 0) {
         struct limine_framebuffer *fb = fb_request.response->framebuffers[0];
         KASSERT(fb != NULL);
@@ -287,53 +273,35 @@ void _start(void) {
                fb->width, fb->height, fb->bpp);
     }
 
-    /* ─────────────────────────────────────────────────────────────
-     * 13. Keyboard
-     * ───────────────────────────────────────────────────────────── */
+    /* 13. Keyboard */
     kb_init();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 13b. VFS — Virtual File System
-     * ───────────────────────────────────────────────────────────── */
+    /* 13b. VFS + devfs */
     vfs_init();
     devfs_init();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 13c. Memory Pressure + Watchdog
-     * ───────────────────────────────────────────────────────────── */
+    /* 13c. Memory Pressure + Watchdog */
     mempressure_init();
     watchdog_init();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 13d. LAPIC — Local APIC driver (IPIs, timer, EOI)
-     * ───────────────────────────────────────────────────────────── */
+    /* 13d. LAPIC */
     lapic_init();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 13e. TLB Shootdown — ISR stub already registered in IDT
-     * ───────────────────────────────────────────────────────────── */
+    /* 13e. TLB Shootdown */
     tlb_shootdown_init();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 13f. Ramdisk + ext2 — boot module as filesystem
-     * ───────────────────────────────────────────────────────────── */
+    /* 13f. Ramdisk + ext2 */
     ramdisk_init();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 13g. PCI + USB — enumeration and xHCI detection
-     * ───────────────────────────────────────────────────────────── */
+    /* 13g. PCI + xHCI */
     pci_enumerate();
     xhci_init();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 14. Self-tests
-     * ───────────────────────────────────────────────────────────── */
+    /* 14. Self-tests */
     register_selftests();
     int failures = run_all_selftests();
 
-    /* ─────────────────────────────────────────────────────────────
-     * 15. Boot memory report
-     * ───────────────────────────────────────────────────────────── */
+    /* 15. Boot memory report */
     print_boot_memory_report();
 
     kmalloc_dump_stats();
