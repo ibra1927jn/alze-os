@@ -432,6 +432,37 @@ void pmm_init_test(uint64_t base_phys, uint64_t size,
 
 #ifndef PMM_USERSPACE_TEST
 
+/* Feed a usable physical memory region into the buddy allocator,
+ * using the largest possible buddy blocks for each aligned chunk. */
+static void pmm_feed_region(uint64_t region_base, uint64_t region_end) {
+    uint64_t start_pfn = (region_base + PAGE_SIZE - 1) / PAGE_SIZE;
+    uint64_t end_pfn   = region_end / PAGE_SIZE;
+
+    if (start_pfn >= end_pfn) return;
+    if (end_pfn > pmm.total_pfns) end_pfn = pmm.total_pfns;
+
+    for (uint64_t pfn = start_pfn; pfn < end_pfn; ) {
+        uint32_t order = 0;
+        while (order < PMM_MAX_ORDER) {
+            uint64_t block_pages = 1UL << (order + 1);
+            if ((pfn & (block_pages - 1)) != 0) break;
+            if (pfn + block_pages > end_pfn) break;
+            order++;
+        }
+
+        uint64_t block_pages = 1UL << order;
+        for (uint64_t j = 0; j < block_pages; j++) {
+            pmm.pages[pfn + j].flags = PAGE_USED;
+        }
+        pmm.reserved_pages -= block_pages;
+        pmm.used_pages += block_pages;
+
+        pmm_free_pages(pfn_to_phys(pfn), order);
+
+        pfn += block_pages;
+    }
+}
+
 void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm) {
     PMM_ASSERT(memmap != NULL);
 
@@ -502,34 +533,7 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm) {
             if (region_base >= region_end) continue;
         }
 
-        /* Align to page boundaries */
-        uint64_t start_pfn = (region_base + PAGE_SIZE - 1) / PAGE_SIZE;
-        uint64_t end_pfn   = region_end / PAGE_SIZE;
-
-        if (start_pfn >= end_pfn) continue;
-        if (end_pfn > pmm.total_pfns) end_pfn = pmm.total_pfns;
-
-        /* Feed pages using largest possible buddy blocks */
-        for (uint64_t pfn = start_pfn; pfn < end_pfn; ) {
-            uint32_t order = 0;
-            while (order < PMM_MAX_ORDER) {
-                uint64_t block_pages = 1UL << (order + 1);
-                if ((pfn & (block_pages - 1)) != 0) break;
-                if (pfn + block_pages > end_pfn) break;
-                order++;
-            }
-
-            uint64_t block_pages = 1UL << order;
-            for (uint64_t j = 0; j < block_pages; j++) {
-                pmm.pages[pfn + j].flags = PAGE_USED;
-            }
-            pmm.reserved_pages -= block_pages;
-            pmm.used_pages += block_pages;
-
-            pmm_free_pages(pfn_to_phys(pfn), order);
-
-            pfn += block_pages;
-        }
+        pmm_feed_region(region_base, region_end);
     }
 
     PMM_LOG("Initialized: %lu free, %lu reserved, %lu total",
