@@ -91,6 +91,56 @@ static const char *memmap_type_str(uint64_t type) {
     }
 }
 
+/* ── Print memory map and tally usable pages ──────────────────── */
+
+static void print_memory_map(struct limine_memmap_response *resp) {
+    uint64_t entry_count = resp->entry_count;
+    LOG_INFO("Memory map: %lu entries", entry_count);
+
+    uint64_t usable_bytes = 0;
+    uint64_t usable_pages = 0;
+    for (uint64_t i = 0; i < entry_count; i++) {
+        struct limine_memmap_entry *e = resp->entries[i];
+
+        uint64_t aligned_base = PAGE_ALIGN_UP(e->base);
+        uint64_t aligned_end  = PAGE_ALIGN_DOWN(e->base + e->length);
+        uint64_t pages = (aligned_end > aligned_base)
+                         ? (aligned_end - aligned_base) / PAGE_SIZE : 0;
+
+        kprintf("  [%2lu] %p-%p %8lu KB %-22s",
+                i, (void *)e->base, (void *)(e->base + e->length),
+                e->length / 1024, memmap_type_str(e->type));
+
+        if (e->type == LIMINE_MEMMAP_USABLE) {
+            kprintf(" (%lu pages)", pages);
+            usable_bytes += e->length;
+            usable_pages += pages;
+        }
+        kprintf("\n");
+    }
+    LOG_INFO("Total usable: %lu KB (%lu MB) = %lu pages",
+             usable_bytes / 1024, usable_bytes / (1024 * 1024), usable_pages);
+}
+
+/* ── Print boot memory report ─────────────────────────────────── */
+
+static void print_boot_memory_report(void) {
+    extern char __kernel_start, __kernel_end;
+    uint64_t kernel_size = (uint64_t)&__kernel_end - (uint64_t)&__kernel_start;
+    uint64_t free_pg = pmm_free_count();
+    uint64_t used_pg = pmm_used_count();
+    uint64_t total = free_pg + used_pg;
+    uint64_t pct = (free_pg * 100) / (total > 0 ? total : 1);
+
+    kprintf("\n--- Boot Memory Report ---\n");
+    kprintf("  Kernel:   %lu KB (0x%lx - 0x%lx)\n",
+            kernel_size / 1024, (uint64_t)&__kernel_start, (uint64_t)&__kernel_end);
+    kprintf("  RAM:      %lu pages (%lu MB)\n", total, total * 4 / 1024);
+    kprintf("  Free:     %lu pages (%lu KB) [%lu%%]\n", free_pg, free_pg * 4, pct);
+    kprintf("  Used:     %lu pages (%lu KB)\n", used_pg, used_pg * 4);
+    kprintf("  Peak:     %lu pages (%lu KB)\n", pmm_peak_used(), pmm_peak_used() * 4);
+}
+
 /* Tests are in kernel/tests.c */
 extern void register_selftests(void);
 
@@ -99,6 +149,52 @@ struct limine_memmap_response *memmap_resp_saved = 0;
 
 /* Runtime tests (in runtime_tests.c) */
 extern void run_runtime_tests(void);
+
+/* Subsystem externs (defined in their respective .c files) */
+extern void hal_init(void);
+extern void devfs_init(void);
+extern void workqueue_process_system(void);
+
+/* ── Print boot banner ────────────────────────────────────────── */
+
+static void print_boot_banner(int failures) {
+    uint64_t uptime_ms = pit_get_ticks() * 10;  /* 100 Hz = 10ms per tick */
+    kprintf("\n==============================\n");
+    kprintf("  Anykernel OS v0.7.0\n");
+    kprintf("  %d tests, %d failures\n", selftest_count(), failures);
+    kprintf("  Boot time: %lu ms\n", uptime_ms);
+    kprintf("  Idle: %s\n", cpuidle_has_mwait() ? "MWAIT (deep sleep)" : "HLT");
+    kprintf("  Timer: tickless-ready\n");
+    kprintf("==============================\n");
+
+    kprintf("\n");
+    if (failures > 0) {
+        LOG_ERROR("SELF-TEST FAILURES: %d", failures);
+    }
+}
+
+/* ── Idle loop — runs forever after boot ──────────────────────── */
+
+static _Noreturn void idle_loop(void) {
+    for (;;) {
+        sched_reap_dead();
+        workqueue_process_system();
+        mempressure_check();
+
+        if (pit_is_tickless() == 0) {
+            pit_set_oneshot(PIT_BASE_FREQ / 100);
+        }
+
+        cpu_idle();
+
+        char c;
+        while ((c = kb_getchar()) != 0) {
+            if (console_available()) {
+                console_putchar(c);
+            }
+        }
+    }
+}
 
 /* ── Kernel main ──────────────────────────────────────────────── */
 
@@ -145,32 +241,7 @@ void _start(void) {
     /* 9. Memory map */
     KASSERT(memmap_request.response != NULL);
     memmap_resp_saved = memmap_request.response;
-    uint64_t entry_count = memmap_request.response->entry_count;
-    LOG_INFO("Memory map: %lu entries", entry_count);
-
-    uint64_t usable_bytes = 0;
-    uint64_t usable_pages = 0;
-    for (uint64_t i = 0; i < entry_count; i++) {
-        struct limine_memmap_entry *e = memmap_request.response->entries[i];
-
-        uint64_t aligned_base = PAGE_ALIGN_UP(e->base);
-        uint64_t aligned_end  = PAGE_ALIGN_DOWN(e->base + e->length);
-        uint64_t pages = (aligned_end > aligned_base)
-                         ? (aligned_end - aligned_base) / PAGE_SIZE : 0;
-
-        kprintf("  [%2lu] %p-%p %8lu KB %-22s",
-                i, (void *)e->base, (void *)(e->base + e->length),
-                e->length / 1024, memmap_type_str(e->type));
-
-        if (e->type == LIMINE_MEMMAP_USABLE) {
-            kprintf(" (%lu pages)", pages);
-            usable_bytes += e->length;
-            usable_pages += pages;
-        }
-        kprintf("\n");
-    }
-    LOG_INFO("Total usable: %lu KB (%lu MB) = %lu pages",
-             usable_bytes / 1024, usable_bytes / (1024 * 1024), usable_pages);
+    print_memory_map(memmap_request.response);
 
     /* ─────────────────────────────────────────────────────────────
      * 10. PMM — Physical Memory Manager (Buddy Allocator)
@@ -192,7 +263,6 @@ void _start(void) {
     /* ─────────────────────────────────────────────────────────────
      * 11c. HAL — Hardware Abstraction Layer
      * ───────────────────────────────────────────────────────────── */
-    extern void hal_init(void);
     hal_init();
 
     /* ─────────────────────────────────────────────────────────────
@@ -226,7 +296,6 @@ void _start(void) {
      * 13b. VFS — Virtual File System
      * ───────────────────────────────────────────────────────────── */
     vfs_init();
-    extern void devfs_init(void);
     devfs_init();
 
     /* ─────────────────────────────────────────────────────────────
@@ -265,39 +334,12 @@ void _start(void) {
     /* ─────────────────────────────────────────────────────────────
      * 15. Boot memory report
      * ───────────────────────────────────────────────────────────── */
-    kprintf("\n--- Boot Memory Report ---\n");
-    {
-        extern char __kernel_start, __kernel_end;
-        uint64_t kernel_size = (uint64_t)&__kernel_end - (uint64_t)&__kernel_start;
-        uint64_t free_pg = pmm_free_count();
-        uint64_t used_pg = pmm_used_count();
-        uint64_t total = free_pg + used_pg;
-        uint64_t pct = (free_pg * 100) / (total > 0 ? total : 1);
-
-        kprintf("  Kernel:   %lu KB (0x%lx - 0x%lx)\n",
-                kernel_size / 1024, (uint64_t)&__kernel_start, (uint64_t)&__kernel_end);
-        kprintf("  RAM:      %lu pages (%lu MB)\n", total, total * 4 / 1024);
-        kprintf("  Free:     %lu pages (%lu KB) [%lu%%]\n", free_pg, free_pg * 4, pct);
-        kprintf("  Used:     %lu pages (%lu KB)\n", used_pg, used_pg * 4);
-        kprintf("  Peak:     %lu pages (%lu KB)\n", pmm_peak_used(), pmm_peak_used() * 4);
-    }
+    print_boot_memory_report();
 
     kmalloc_dump_stats();
 
     /* Banner */
-    uint64_t uptime_ms = pit_get_ticks() * 10;  /* 100 Hz = 10ms per tick */
-    kprintf("\n==============================\n");
-    kprintf("  Anykernel OS v0.7.0\n");
-    kprintf("  %d tests, %d failures\n", selftest_count(), failures);
-    kprintf("  Boot time: %lu ms\n", uptime_ms);
-    kprintf("  Idle: %s\n", cpuidle_has_mwait() ? "MWAIT (deep sleep)" : "HLT");
-    kprintf("  Timer: tickless-ready\n");
-    kprintf("==============================\n");
-
-    kprintf("\n");
-    if (failures > 0) {
-        LOG_ERROR("SELF-TEST FAILURES: %d", failures);
-    }
+    print_boot_banner(failures);
 
     /* ── Step 16: Scheduler ────────────────────────── */
     sched_init();
@@ -307,35 +349,5 @@ void _start(void) {
 
     LOG_INFO("System ready. Init task handling keyboard.");
 
-    for (;;) {
-        /* Idle work: reap dead tasks, process workqueues, check memory */
-        sched_reap_dead();
-
-        extern void workqueue_process_system(void);
-        workqueue_process_system();
-
-        mempressure_check();
-
-        /* Tickless: enter one-shot/stop when no work pending.
-         * Linux NO_HZ: stop ticks when idle.
-         * macOS Timer Coalescing: batch wakeups.
-         * This saves power on laptops. */
-        if (pit_is_tickless() == 0) {
-            /* Switch to one-shot for next scheduler tick (~10ms) */
-            pit_set_oneshot(PIT_BASE_FREQ / 100);
-        }
-
-        /* CPU Idle: use MWAIT if available, else HLT.
-         * Linux cpuidle: selects deepest C-state.
-         * macOS Power Nap: ultra-low power idle. */
-        cpu_idle();
-
-        /* Handle keyboard input */
-        char c;
-        while ((c = kb_getchar()) != 0) {
-            if (console_available()) {
-                console_putchar(c);
-            }
-        }
-    }
+    idle_loop();
 }
