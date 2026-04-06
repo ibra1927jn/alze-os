@@ -1,7 +1,12 @@
 # PROGRESS.md — Project Status
 
 ## In progress
-- [2026-04-06] | Heartbeat maintenance: pass 22 refactor & deduplication | 100%
+- [2026-04-06] | Heartbeat maintenance: pass 23 cleanup & deduplication | 100%
+
+## Session 2026-04-06 (heartbeat pass 23)
+- refactor(kernel): remove unused compiler.h includes from vfs, vma, workqueue_def | b9f4658
+- refactor(pic): extract pic_modify_mask to deduplicate unmask/mask logic | 5adb9f6
+- Build: clean (0 errors, 0 warnings), Tests: 29/29 passing (unchanged)
 
 ## Session 2026-04-06 (heartbeat pass 22)
 - refactor(kprintf): extract kprintf_dispatch to reduce kprintf from 102 to 55 lines | 41c3ca8
