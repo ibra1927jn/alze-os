@@ -183,7 +183,7 @@ static _Noreturn void idle_loop(void) {
         mempressure_check();
 
         if (pit_is_tickless() == 0) {
-            pit_set_oneshot(PIT_BASE_FREQ / 100);
+            pit_set_oneshot(PIT_BASE_FREQ / (1000 / TIMER_TICK_MS));
         }
 
         cpu_idle();
@@ -229,10 +229,10 @@ void _start(void) {
 
     /* 7. PIC + PIT — hardware interrupt infrastructure */
     pic_init();
-    pit_init(100);  /* 100 Hz = 10ms tick */
+    pit_init(1000 / TIMER_TICK_MS);
     pic_unmask(IRQ_TIMER);  /* Enable timer IRQ */
     asm volatile("sti");    /* ENABLE INTERRUPTS! */
-    LOG_OK("PIC remapped, PIT at 100 Hz, interrupts ENABLED");
+    LOG_OK("PIC remapped, PIT at %u Hz, interrupts ENABLED", 1000 / TIMER_TICK_MS);
 
     /* 8. HHDM */
     KASSERT(hhdm_request.response != NULL);
