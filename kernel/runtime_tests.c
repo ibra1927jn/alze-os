@@ -6,6 +6,7 @@
  */
 
 #include <stdint.h>
+#include "cpu.h"
 #include "sched.h"
 #include "task.h"
 #include "spinlock.h"
@@ -38,14 +39,6 @@ static void stress_thread_fn(void) {
         spin_unlock_irqrestore(&counter_lock, flags);
         if (i % STRESS_YIELD_INTERVAL == 0) sched_yield();
     }
-}
-
-/* ── RDTSC ───────────────────────────────────────────────────── */
-
-static inline uint64_t rdtsc(void) {
-    uint32_t lo, hi;
-    asm volatile("rdtsc" : "=a"(lo), "=d"(hi));
-    return ((uint64_t)hi << 32) | lo;
 }
 
 /* ── Context switch benchmark ────────────────────────────────── */

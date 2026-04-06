@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include "panic.h"
+#include "cpu.h"
 
 /* ── Constants ───────────────────────────────────────────────── */
 
@@ -30,13 +31,6 @@
  * at function exit. If it changed, a stack buffer overflow occurred.
  */
 uintptr_t __stack_chk_guard = SSP_INITIAL_CANARY;
-
-/* Read Time Stamp Counter for randomization */
-static inline uint64_t rdtsc(void) {
-    uint32_t lo, hi;
-    asm volatile("rdtsc" : "=a"(lo), "=d"(hi));
-    return ((uint64_t)hi << 32) | lo;
-}
 
 /* Initialize the canary with a non-deterministic value */
 void ssp_init(void) {
