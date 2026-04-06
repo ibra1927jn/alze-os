@@ -294,6 +294,157 @@ void vmm_map_range_huge(uint64_t virt, uint64_t phys, uint64_t size, uint64_t fl
     spin_unlock_irqrestore(&vmm_lock, irq_flags);
 }
 
+/* ── Helper: Walk Limine's tables to find kernel physical base ── */
+
+static uint64_t vmm_find_kernel_phys_base(void) {
+    uint64_t limine_cr3 = read_cr3();
+    uint64_t kernel_virt = (uint64_t)&__kernel_start;
+
+    uint64_t *l_pml4 = (uint64_t *)PHYS2VIRT(limine_cr3 & PTE_ADDR_MASK);
+    uint64_t l_pml4e = l_pml4[PML4_INDEX(kernel_virt)];
+    KASSERT(l_pml4e & PTE_PRESENT);
+
+    uint64_t *l_pdpt = (uint64_t *)PHYS2VIRT(pte_to_phys(l_pml4e));
+    uint64_t l_pdpte = l_pdpt[PDPT_INDEX(kernel_virt)];
+    KASSERT(l_pdpte & PTE_PRESENT);
+
+    if (l_pdpte & PTE_HUGE) {
+        return pte_to_phys(l_pdpte);
+    }
+
+    uint64_t *l_pd = (uint64_t *)PHYS2VIRT(pte_to_phys(l_pdpte));
+    uint64_t l_pde = l_pd[PD_INDEX(kernel_virt)];
+    KASSERT(l_pde & PTE_PRESENT);
+
+    if (l_pde & PTE_HUGE) {
+        return pte_to_phys(l_pde);
+    }
+
+    uint64_t *l_pt = (uint64_t *)PHYS2VIRT(pte_to_phys(l_pde));
+    uint64_t l_pte = l_pt[PT_INDEX(kernel_virt)];
+    KASSERT(l_pte & PTE_PRESENT);
+    return pte_to_phys(l_pte);
+}
+
+/* ── Helper: Apply per-section W^X permissions ──────────────── */
+
+static void vmm_apply_section_permissions(uint64_t kernel_phys_base) {
+    uint64_t text_virt  = (uint64_t)&__text_start;
+    uint64_t text_phys  = kernel_phys_base + (text_virt - (uint64_t)&__kernel_start);
+    uint64_t text_size  = (uint64_t)&__text_end - text_virt;
+
+    uint64_t ro_virt    = (uint64_t)&__rodata_start;
+    uint64_t ro_phys    = kernel_phys_base + (ro_virt - (uint64_t)&__kernel_start);
+    uint64_t ro_size    = (uint64_t)&__rodata_end - ro_virt;
+
+    uint64_t data_virt  = (uint64_t)&__data_start;
+    uint64_t data_phys  = kernel_phys_base + (data_virt - (uint64_t)&__kernel_start);
+    uint64_t data_size  = (uint64_t)&__data_end - data_virt;
+
+    uint64_t bss_virt   = (uint64_t)&__bss_start;
+    uint64_t bss_phys   = kernel_phys_base + (bss_virt - (uint64_t)&__kernel_start);
+    uint64_t bss_size   = (uint64_t)&__bss_end - bss_virt;
+
+    /* .text → Read+Execute (no write, no NX) */
+    if (text_size > 0)
+        vmm_map_range(text_virt, text_phys, text_size, VMM_FLAGS_KERNEL_RX);
+
+    /* .rodata → Read-only (no write, NX) */
+    if (ro_size > 0)
+        vmm_map_range(ro_virt, ro_phys, ro_size, VMM_FLAGS_KERNEL_RO);
+
+    /* .data → Read+Write (NX) */
+    if (data_size > 0)
+        vmm_map_range(data_virt, data_phys, data_size, VMM_FLAGS_KERNEL_RW);
+
+    /* .bss → Read+Write (NX) */
+    if (bss_size > 0)
+        vmm_map_range(bss_virt, bss_phys, bss_size, VMM_FLAGS_KERNEL_RW);
+
+    /* Gap-page sweep: any kernel page not in a named section
+     * still has the initial W+X flags. Set NX on those gaps.
+     * (Alignment padding between .text/.rodata/.data/.bss) */
+    {
+        uint64_t kstart = (uint64_t)&__kernel_start;
+        uint64_t kend   = (uint64_t)&__kernel_end;
+        uint32_t gaps_fixed = 0;
+
+        for (uint64_t va = kstart; va < kend; va += PAGE_SIZE) {
+            if (va >= text_virt  && va < text_virt  + text_size) continue;
+            if (va >= ro_virt    && va < ro_virt    + ro_size)   continue;
+            if (va >= data_virt  && va < data_virt  + data_size) continue;
+            if (va >= bss_virt   && va < bss_virt   + bss_size)  continue;
+
+            uint64_t gap_phys = kernel_phys_base + (va - kstart);
+            vmm_map_page(va, gap_phys, VMM_FLAGS_KERNEL_RW);
+            gaps_fixed++;
+        }
+        if (gaps_fixed > 0) {
+            LOG_INFO("VMM: %u gap pages fixed (W+X → RW+NX)", gaps_fixed);
+        }
+    }
+
+    LOG_OK("VMM: Per-section permissions applied (W^X clean)");
+    LOG_INFO("  .text:   %lu KB (RX)", text_size / 1024);
+    LOG_INFO("  .rodata: %lu KB (RO)", ro_size / 1024);
+    LOG_INFO("  .data:   %lu KB (RW+NX)", data_size / 1024);
+    LOG_INFO("  .bss:    %lu KB (RW+NX)", bss_size / 1024);
+
+    /* W^X now enforced — all future map_page calls are audited */
+    vmm_wx_enforced = 1;
+    LOG_OK("VMM: W^X enforcement ENABLED (OpenBSD mode)");
+}
+
+/* ── Helper: Allocate kernel stacks (RSP0 + IST1) ──────────── */
+
+static void vmm_setup_kernel_stacks(void) {
+    #define KERNEL_STACK_PAGES 4   /* 16 KB */
+    #define KERNEL_STACK_VIRT  0xFFFFFF0000100000UL
+
+    /* Allocate IST/RSP0 stack pages */
+    for (int i = 0; i < KERNEL_STACK_PAGES; i++) {
+        uint64_t phys_page = pmm_alloc_pages_zero(0);
+        KASSERT(phys_page != 0);
+        vmm_map_page(
+            KERNEL_STACK_VIRT + (i + 1) * PAGE_SIZE,
+            phys_page,
+            VMM_FLAGS_KERNEL_RW
+        );
+    }
+    /* Page at KERNEL_STACK_VIRT is NOT mapped = guard page */
+
+    uint64_t rsp0_top = KERNEL_STACK_VIRT + (KERNEL_STACK_PAGES + 1) * PAGE_SIZE;
+    tss_set_rsp0(rsp0_top);
+
+    LOG_OK("VMM: TSS RSP0 stack at 0x%lx (16 KB, guard at 0x%lx)",
+           KERNEL_STACK_VIRT + PAGE_SIZE, KERNEL_STACK_VIRT);
+
+    /* Guard page on Limine's boot stack */
+    uint64_t rsp;
+    asm volatile("mov %%rsp, %0" : "=r"(rsp));
+    uint64_t guard_page = PAGE_ALIGN_DOWN(rsp) - PAGE_SIZE;
+    vmm_unmap_page(guard_page);
+    LOG_OK("VMM: Boot stack guard page at 0x%lx", guard_page);
+
+    /* IST1 stack for Double Fault (8KB = 2 pages + guard) */
+    #define IST1_STACK_PAGES 2
+    #define IST1_STACK_VIRT  0xFFFFFF0000200000UL
+
+    for (int i = 0; i < IST1_STACK_PAGES; i++) {
+        uint64_t phys_page = pmm_alloc_pages_zero(0);
+        KASSERT(phys_page != 0);
+        vmm_map_page(
+            IST1_STACK_VIRT + (i + 1) * PAGE_SIZE,
+            phys_page,
+            VMM_FLAGS_KERNEL_RW
+        );
+    }
+    uint64_t ist1_top = IST1_STACK_VIRT + (IST1_STACK_PAGES + 1) * PAGE_SIZE;
+    tss_set_ist1(ist1_top);
+    LOG_OK("VMM: IST1 (#DF) stack at 0x%lx (8 KB, guard at 0x%lx)",
+           IST1_STACK_VIRT + PAGE_SIZE, IST1_STACK_VIRT);
+}
+
 /* ── vmm_init: Build our tables and switch CR3 ────────────────── */
 
 void vmm_init(void) {
@@ -306,49 +457,10 @@ void vmm_init(void) {
     pml4_phys = pmm_alloc_pages_zero(0);
     KASSERT(pml4_phys != 0);
 
-    /* 2. Determine kernel physical base.
-     *    Limine maps kernel at KERNEL_VIRT_BASE.
-     *    We can find the physical base by reading Limine's current CR3
-     *    and walking to our _start symbol, or by using the HHDM:
-     *    kernel_phys = VIRT2PHYS(kernel_virt) only works if HHDM covers it.
-     *
-     *    Actually, the kernel is in the higher half (0xFFFFFFFF80000000),
-     *    NOT in the HHDM (0xFFFF800000000000). So VIRT2PHYS won't work.
-     *    We need to walk Limine's page tables to find the physical base. */
-    uint64_t limine_cr3 = read_cr3();
-    uint64_t kernel_virt = (uint64_t)&__kernel_start;
-
-    /* Walk Limine's tables to find kernel physical base */
-    uint64_t *l_pml4 = (uint64_t *)PHYS2VIRT(limine_cr3 & PTE_ADDR_MASK);
-    uint64_t l_pml4e = l_pml4[PML4_INDEX(kernel_virt)];
-    KASSERT(l_pml4e & PTE_PRESENT);
-
-    uint64_t *l_pdpt = (uint64_t *)PHYS2VIRT(pte_to_phys(l_pml4e));
-    uint64_t l_pdpte = l_pdpt[PDPT_INDEX(kernel_virt)];
-    KASSERT(l_pdpte & PTE_PRESENT);
-
-    uint64_t kernel_phys_base;
-
-    if (l_pdpte & PTE_HUGE) {
-        /* 1GB mapping — extract base */
-        kernel_phys_base = pte_to_phys(l_pdpte);
-    } else {
-        uint64_t *l_pd = (uint64_t *)PHYS2VIRT(pte_to_phys(l_pdpte));
-        uint64_t l_pde = l_pd[PD_INDEX(kernel_virt)];
-        KASSERT(l_pde & PTE_PRESENT);
-
-        if (l_pde & PTE_HUGE) {
-            /* 2MB mapping */
-            kernel_phys_base = pte_to_phys(l_pde);
-        } else {
-            /* 4KB mapping — walk to PT */
-            uint64_t *l_pt = (uint64_t *)PHYS2VIRT(pte_to_phys(l_pde));
-            uint64_t l_pte = l_pt[PT_INDEX(kernel_virt)];
-            KASSERT(l_pte & PTE_PRESENT);
-            kernel_phys_base = pte_to_phys(l_pte);
-        }
-    }
-
+    /* 2. Find kernel physical base by walking Limine's page tables.
+     *    The kernel is in the higher half (0xFFFFFFFF80000000),
+     *    NOT in the HHDM, so VIRT2PHYS won't work. */
+    uint64_t kernel_phys_base = vmm_find_kernel_phys_base();
     LOG_INFO("VMM: Kernel phys base: 0x%lx", kernel_phys_base);
 
     uint64_t kernel_size = (uint64_t)&__kernel_end - (uint64_t)&__kernel_start;
@@ -416,132 +528,19 @@ void vmm_init(void) {
      *    Re-map each section with correct permissions.
      *    We do this AFTER the switch because changing permissions
      *    on Limine's tables would be rude. */
-    {
-        uint64_t text_virt  = (uint64_t)&__text_start;
-        uint64_t text_phys  = kernel_phys_base + (text_virt - (uint64_t)&__kernel_start);
-        uint64_t text_size  = (uint64_t)&__text_end - text_virt;
-
-        uint64_t ro_virt    = (uint64_t)&__rodata_start;
-        uint64_t ro_phys    = kernel_phys_base + (ro_virt - (uint64_t)&__kernel_start);
-        uint64_t ro_size    = (uint64_t)&__rodata_end - ro_virt;
-
-        uint64_t data_virt  = (uint64_t)&__data_start;
-        uint64_t data_phys  = kernel_phys_base + (data_virt - (uint64_t)&__kernel_start);
-        uint64_t data_size  = (uint64_t)&__data_end - data_virt;
-
-        uint64_t bss_virt   = (uint64_t)&__bss_start;
-        uint64_t bss_phys   = kernel_phys_base + (bss_virt - (uint64_t)&__kernel_start);
-        uint64_t bss_size   = (uint64_t)&__bss_end - bss_virt;
-
-        /* .text → Read+Execute (no write, no NX) */
-        if (text_size > 0)
-            vmm_map_range(text_virt, text_phys, text_size, VMM_FLAGS_KERNEL_RX);
-
-        /* .rodata → Read-only (no write, NX) */
-        if (ro_size > 0)
-            vmm_map_range(ro_virt, ro_phys, ro_size, VMM_FLAGS_KERNEL_RO);
-
-        /* .data → Read+Write (NX) */
-        if (data_size > 0)
-            vmm_map_range(data_virt, data_phys, data_size, VMM_FLAGS_KERNEL_RW);
-
-        /* .bss → Read+Write (NX) */
-        if (bss_size > 0)
-            vmm_map_range(bss_virt, bss_phys, bss_size, VMM_FLAGS_KERNEL_RW);
-
-        /* Gap-page sweep: any kernel page not in a named section
-         * still has the initial W+X flags. Set NX on those gaps.
-         * (Alignment padding between .text/.rodata/.data/.bss) */
-        {
-            uint64_t kstart = (uint64_t)&__kernel_start;
-            uint64_t kend   = (uint64_t)&__kernel_end;
-            uint32_t gaps_fixed = 0;
-
-            for (uint64_t va = kstart; va < kend; va += PAGE_SIZE) {
-                /* Skip pages inside known sections */
-                if (va >= text_virt  && va < text_virt  + text_size) continue;
-                if (va >= ro_virt    && va < ro_virt    + ro_size)   continue;
-                if (va >= data_virt  && va < data_virt  + data_size) continue;
-                if (va >= bss_virt   && va < bss_virt   + bss_size)  continue;
-
-                /* This is a gap page — set NX to close W^X violation */
-                uint64_t gap_phys = kernel_phys_base + (va - kstart);
-                vmm_map_page(va, gap_phys, VMM_FLAGS_KERNEL_RW);
-                gaps_fixed++;
-            }
-            if (gaps_fixed > 0) {
-                LOG_INFO("VMM: %u gap pages fixed (W+X → RW+NX)", gaps_fixed);
-            }
-        }
-
-        LOG_OK("VMM: Per-section permissions applied (W^X clean)");
-        LOG_INFO("  .text:   %lu KB (RX)", text_size / 1024);
-        LOG_INFO("  .rodata: %lu KB (RO)", ro_size / 1024);
-        LOG_INFO("  .data:   %lu KB (RW+NX)", data_size / 1024);
-        LOG_INFO("  .bss:    %lu KB (RW+NX)", bss_size / 1024);
-
-        /* W^X now enforced — all future map_page calls are audited.
-         * OpenBSD does the same: permissive during boot, strict after. */
-        vmm_wx_enforced = 1;
-        LOG_OK("VMM: W^X enforcement ENABLED (OpenBSD mode)");
-    }
+    vmm_apply_section_permissions(kernel_phys_base);
 
     /* 7. Kernel stack improvements:
      *    a) Allocate a proper 16KB stack for TSS RSP0 (used during
      *       privilege transitions when we add user-mode in Sprint 4+).
      *    b) Add guard page on Limine's current boot stack.
+     *    c) IST1 stack for Double Fault handler.
      *
      *    NOTE: We do NOT switch RSP here because doing so via inline
      *    asm would destroy the current C stack frame. The actual boot
      *    stack switch will happen in Sprint 4 via a dedicated asm
      *    trampoline during scheduler init. */
-    {
-        #define KERNEL_STACK_PAGES 4   /* 16 KB */
-        #define KERNEL_STACK_VIRT  0xFFFFFF0000100000UL
-
-        /* Allocate IST/RSP0 stack pages */
-        for (int i = 0; i < KERNEL_STACK_PAGES; i++) {
-            uint64_t phys_page = pmm_alloc_pages_zero(0);
-            KASSERT(phys_page != 0);
-            vmm_map_page(
-                KERNEL_STACK_VIRT + (i + 1) * PAGE_SIZE,
-                phys_page,
-                VMM_FLAGS_KERNEL_RW
-            );
-        }
-        /* Page at KERNEL_STACK_VIRT is NOT mapped = guard page */
-
-        uint64_t rsp0_top = KERNEL_STACK_VIRT + (KERNEL_STACK_PAGES + 1) * PAGE_SIZE;
-        tss_set_rsp0(rsp0_top);
-
-        LOG_OK("VMM: TSS RSP0 stack at 0x%lx (16 KB, guard at 0x%lx)",
-               KERNEL_STACK_VIRT + PAGE_SIZE, KERNEL_STACK_VIRT);
-
-        /* Guard page on Limine's boot stack */
-        uint64_t rsp;
-        asm volatile("mov %%rsp, %0" : "=r"(rsp));
-        uint64_t guard_page = PAGE_ALIGN_DOWN(rsp) - PAGE_SIZE;
-        vmm_unmap_page(guard_page);
-        LOG_OK("VMM: Boot stack guard page at 0x%lx", guard_page);
-
-        /* IST1 stack for Double Fault (8KB = 2 pages + guard) */
-        #define IST1_STACK_PAGES 2
-        #define IST1_STACK_VIRT  0xFFFFFF0000200000UL
-
-        for (int i = 0; i < IST1_STACK_PAGES; i++) {
-            uint64_t phys_page = pmm_alloc_pages_zero(0);
-            KASSERT(phys_page != 0);
-            vmm_map_page(
-                IST1_STACK_VIRT + (i + 1) * PAGE_SIZE,
-                phys_page,
-                VMM_FLAGS_KERNEL_RW
-            );
-        }
-        uint64_t ist1_top = IST1_STACK_VIRT + (IST1_STACK_PAGES + 1) * PAGE_SIZE;
-        tss_set_ist1(ist1_top);
-        LOG_OK("VMM: IST1 (#DF) stack at 0x%lx (8 KB, guard at 0x%lx)",
-               IST1_STACK_VIRT + PAGE_SIZE, IST1_STACK_VIRT);
-    }
+    vmm_setup_kernel_stacks();
 
     LOG_INFO("VMM: %lu page tables allocated (%lu KB overhead)",
              vmm_tables_allocated, vmm_tables_allocated * 4);
