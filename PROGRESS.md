@@ -1,7 +1,12 @@
 # PROGRESS.md — Project Status
 
 ## In progress
-- [2026-03-30] | Heartbeat maintenance: pass 17 cleanup | 100%
+- [2026-04-06] | Heartbeat maintenance: pass 18 refactoring | 100%
+
+## Session 2026-04-06 (heartbeat pass 18)
+- refactor(pci): extract common bus scan loop into pci_scan callback helper (150 → 130 lines) | c927f79
+- refactor(lapic): replace magic 100 with (1000 / CALIBRATION_MS) in timer calibration | 657ed03
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Session 2026-03-30 (heartbeat pass 17)
 - refactor(main): translate last 3 Spanish comments to English in main.c | 3b5f780
