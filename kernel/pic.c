@@ -78,7 +78,7 @@ void pic_eoi(uint8_t irq) {
     outb(PIC1_CMD, PIC_EOI);      /* Always send to master */
 }
 
-void pic_unmask(uint8_t irq) {
+static void pic_modify_mask(uint8_t irq, int set) {
     uint16_t port;
     if (irq < PIC_IRQS_PER_CHIP) {
         port = PIC1_DATA;
@@ -87,21 +87,19 @@ void pic_unmask(uint8_t irq) {
         irq -= PIC_IRQS_PER_CHIP;
     }
     uint8_t mask = inb(port);
-    mask &= ~(1 << irq);
+    if (set)
+        mask |= (1 << irq);
+    else
+        mask &= ~(1 << irq);
     outb(port, mask);
 }
 
+void pic_unmask(uint8_t irq) {
+    pic_modify_mask(irq, 0);
+}
+
 void pic_mask(uint8_t irq) {
-    uint16_t port;
-    if (irq < PIC_IRQS_PER_CHIP) {
-        port = PIC1_DATA;
-    } else {
-        port = PIC2_DATA;
-        irq -= PIC_IRQS_PER_CHIP;
-    }
-    uint8_t mask = inb(port);
-    mask |= (1 << irq);
-    outb(port, mask);
+    pic_modify_mask(irq, 1);
 }
 
 /* ── PIT Timer ───────────────────────────────────────────────── */
