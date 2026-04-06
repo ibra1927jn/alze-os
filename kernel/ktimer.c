@@ -13,7 +13,6 @@
 
 #include "ktimer.h"
 #include "pic.h"
-#include "kprintf.h"
 #include "log.h"
 #include "compiler.h"
 

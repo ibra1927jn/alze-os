@@ -34,7 +34,6 @@
         __builtin_trap(); \
     } } while(0)
 #else
-    #include "kprintf.h"
     #include "log.h"
     #include "panic.h"
     #include "memory.h"

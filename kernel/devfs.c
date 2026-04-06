@@ -18,7 +18,6 @@
 #include "console.h"
 #include "kb.h"
 #include "string.h"
-#include "kprintf.h"
 #include "log.h"
 
 /* ── /dev/serial (UART COM1) ─────────────────────────────────── */

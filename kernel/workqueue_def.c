@@ -3,7 +3,6 @@
  */
 
 #include "workqueue_def.h"
-#include "kprintf.h"
 #include "log.h"
 #include "compiler.h"
 

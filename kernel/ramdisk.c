@@ -15,7 +15,6 @@
 #include "ramdisk.h"
 #include "ext2.h"
 #include "string.h"
-#include "kprintf.h"
 #include "log.h"
 #include "errno.h"
 #include "vfs.h"

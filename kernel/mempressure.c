@@ -4,7 +4,6 @@
 
 #include "mempressure.h"
 #include "pmm.h"
-#include "kprintf.h"
 #include "log.h"
 #include "errno.h"
 

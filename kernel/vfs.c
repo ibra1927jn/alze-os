@@ -7,7 +7,6 @@
 
 #include "vfs.h"
 #include "string.h"
-#include "kprintf.h"
 #include "log.h"
 #include "compiler.h"
 #include "rwlock.h"

@@ -12,7 +12,6 @@
 
 #include "cpuidle.h"
 #include "pic.h"
-#include "kprintf.h"
 #include "log.h"
 #include <stdint.h>
 

@@ -5,7 +5,6 @@
 #include "watchdog.h"
 #include "task.h"
 #include "ktimer.h"
-#include "kprintf.h"
 #include "log.h"
 #include "compiler.h"
 

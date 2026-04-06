@@ -15,7 +15,6 @@
 #include "pci.h"
 #include "vmm.h"
 #include "memory.h"
-#include "kprintf.h"
 #include "log.h"
 
 /* ── Helpers for reading xHCI MMIO registers ──────────────────── */

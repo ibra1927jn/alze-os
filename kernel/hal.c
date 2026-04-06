@@ -8,7 +8,6 @@
 #include "hal_timer.h"
 #include "hal_irq.h"
 #include "pic.h"
-#include "kprintf.h"
 #include "log.h"
 
 /* ── Global HAL state ────────────────────────────────────────── */

@@ -10,7 +10,6 @@
 #include "pic.h"
 #include "errno.h"
 #include "io.h"
-#include "kprintf.h"
 #include "log.h"
 #include <stdint.h>
 

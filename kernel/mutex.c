@@ -18,7 +18,6 @@
 #include "sched.h"
 #include "spinlock.h"
 #include "compiler.h"
-#include "kprintf.h"
 #include "log.h"
 
 /* ── mutex_lock with priority inheritance ────────────────────── */
