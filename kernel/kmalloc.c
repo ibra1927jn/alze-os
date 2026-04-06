@@ -236,6 +236,22 @@ void *kmalloc(uint64_t size) {
     return slot;
 }
 
+/* Return a slot to its slab free list; free the slab page if empty.
+ * Caller MUST hold classes[cls_idx].lock. */
+static void slab_return_slot(void *slot, struct slab_header *slab, int cls_idx) {
+    *(void **)slot = slab->free;
+    slab->free = slot;
+    slab->used--;
+    if (slab->used == 0) {
+        struct slab_header **pp = &classes[cls_idx].slabs;
+        while (*pp && *pp != slab) pp = &(*pp)->next;
+        if (*pp == slab) *pp = slab->next;
+        memset(slab, POISON_BYTE, PAGE_SIZE);
+        uint64_t phys = virt_to_phys((void *)slab);
+        pmm_free_pages(phys, 0);
+    }
+}
+
 /* ── kfree ────────────────────────────────────────────────────── */
 
 void kfree(void *ptr) {
@@ -316,23 +332,12 @@ void kfree(void *ptr) {
         int old_cls = size_to_class(old_slab->obj_size);
 
         if (old_cls >= 0 && old_cls != cls_idx) {
-            /* Different class: release current lock, take the other class lock.
-             * Fixed order (lower first) to avoid deadlock. */
+            /* Different class: release current lock, take the other class lock. */
             spin_unlock_irqrestore(&classes[cls_idx].lock, irq_flags);
 
             uint64_t old_flags;
             spin_lock_irqsave(&classes[old_cls].lock, &old_flags);
-            *(void **)evicted = old_slab->free;
-            old_slab->free = evicted;
-            old_slab->used--;
-            if (old_slab->used == 0) {
-                struct slab_header **pp = &classes[old_cls].slabs;
-                while (*pp && *pp != old_slab) pp = &(*pp)->next;
-                if (*pp == old_slab) *pp = old_slab->next;
-                memset(old_slab, POISON_BYTE, PAGE_SIZE);
-                uint64_t phys = virt_to_phys((void *)old_slab);
-                pmm_free_pages(phys, 0);
-            }
+            slab_return_slot(evicted, old_slab, old_cls);
             classes[old_cls].total_frees++;
             spin_unlock_irqrestore(&classes[old_cls].lock, old_flags);
 
@@ -340,17 +345,7 @@ void kfree(void *ptr) {
             spin_lock_irqsave(&classes[cls_idx].lock, &irq_flags);
         } else if (old_cls == cls_idx) {
             /* Same class: we already hold the lock */
-            *(void **)evicted = old_slab->free;
-            old_slab->free = evicted;
-            old_slab->used--;
-            if (old_slab->used == 0) {
-                struct slab_header **pp = &classes[cls_idx].slabs;
-                while (*pp && *pp != old_slab) pp = &(*pp)->next;
-                if (*pp == old_slab) *pp = old_slab->next;
-                memset(old_slab, POISON_BYTE, PAGE_SIZE);
-                uint64_t phys = virt_to_phys((void *)old_slab);
-                pmm_free_pages(phys, 0);
-            }
+            slab_return_slot(evicted, old_slab, cls_idx);
         }
         /* old_cls < 0 = corrupted, silently ignore */
     }
