@@ -65,6 +65,18 @@ static const char *xhci_speed_str(uint32_t speed) {
     }
 }
 
+/* ── Spin-wait helper for MMIO register bit transitions ────────── */
+
+static int xhci_wait_bits(uint32_t reg_offset, uint32_t mask,
+                          uint32_t expected, int max_spins) {
+    while (max_spins-- > 0) {
+        if ((xhci_op_read32(reg_offset) & mask) == expected)
+            return 0;
+        asm volatile("pause");
+    }
+    return -1;
+}
+
 /* ── Controller reset ──────────────────────────────────────────── */
 
 static int xhci_reset(void) {
@@ -73,16 +85,10 @@ static int xhci_reset(void) {
     cmd &= ~XHCI_CMD_RUN;
     xhci_op_write32(XHCI_OP_USBCMD, cmd);
 
-    /* Wait for halt (HCHalted = 1) */
-    {
-        int timeout = XHCI_TIMEOUT_HALT;
-        while (!(xhci_op_read32(XHCI_OP_USBSTS) & XHCI_STS_HCH) && --timeout > 0) {
-            asm volatile("pause");
-        }
-        if (timeout == 0) {
-            LOG_ERROR("xHCI: timeout waiting for controller halt");
-            return -1;
-        }
+    if (xhci_wait_bits(XHCI_OP_USBSTS, XHCI_STS_HCH, XHCI_STS_HCH,
+                       XHCI_TIMEOUT_HALT) < 0) {
+        LOG_ERROR("xHCI: timeout waiting for controller halt");
+        return -1;
     }
 
     /* Step 2: reset (HCRST bit) */
@@ -90,28 +96,17 @@ static int xhci_reset(void) {
     cmd |= XHCI_CMD_HCRST;
     xhci_op_write32(XHCI_OP_USBCMD, cmd);
 
-    /* Wait for reset to complete (HCRST clears itself) */
-    {
-        int timeout = XHCI_TIMEOUT_RESET;
-        while ((xhci_op_read32(XHCI_OP_USBCMD) & XHCI_CMD_HCRST) && --timeout > 0) {
-            asm volatile("pause");
-        }
-        if (timeout == 0) {
-            LOG_ERROR("xHCI: timeout waiting for reset completion");
-            return -1;
-        }
+    if (xhci_wait_bits(XHCI_OP_USBCMD, XHCI_CMD_HCRST, 0,
+                       XHCI_TIMEOUT_RESET) < 0) {
+        LOG_ERROR("xHCI: timeout waiting for reset completion");
+        return -1;
     }
 
     /* Step 3: wait for Controller Not Ready = 0 */
-    {
-        int timeout = XHCI_TIMEOUT_READY;
-        while ((xhci_op_read32(XHCI_OP_USBSTS) & XHCI_STS_CNR) && --timeout > 0) {
-            asm volatile("pause");
-        }
-        if (timeout == 0) {
-            LOG_ERROR("xHCI: timeout waiting for controller ready after reset");
-            return -1;
-        }
+    if (xhci_wait_bits(XHCI_OP_USBSTS, XHCI_STS_CNR, 0,
+                       XHCI_TIMEOUT_READY) < 0) {
+        LOG_ERROR("xHCI: timeout waiting for controller ready after reset");
+        return -1;
     }
 
     return 0;
