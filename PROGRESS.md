@@ -1,7 +1,14 @@
 # PROGRESS.md — Project Status
 
 ## In progress
-- [2026-04-06] | Heartbeat maintenance: pass 21 deduplication & extraction | 100%
+- [2026-04-06] | Heartbeat maintenance: pass 22 refactor & deduplication | 100%
+
+## Session 2026-04-06 (heartbeat pass 22)
+- refactor(kprintf): extract kprintf_dispatch to reduce kprintf from 102 to 55 lines | 41c3ca8
+- refactor(vmm): extract vmm_find_max_phys from vmm_init (98 → 72 lines) | 40b84da
+- refactor(cpu): deduplicate rdtsc() into shared cpu.h header | 57293ad
+- refactor(cpu): deduplicate cpuid_leaf() into shared cpu.h header | 44faf36
+- Build: clean (0 errors, 0 warnings), Tests: 29/29 passing (unchanged)
 
 ## Session 2026-04-06 (heartbeat pass 21)
 - refactor(main): extract init_early_hw, init_memory, init_devices from _start (121 → 18 lines) | d9f7a48
