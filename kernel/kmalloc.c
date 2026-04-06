@@ -267,7 +267,7 @@ static bool kfree_large(void *ptr) {
     uint32_t order = (uint32_t)(*(uint64_t *)base);
     /* Validate that order was not corrupted before using it */
     if (order > PMM_MAX_ORDER) {
-        kprintf("[kmalloc] corrupted large header: order=%u\n", order);
+        LOG_ERROR("kmalloc: corrupted large header: order=%u", order);
         spin_unlock_irqrestore(&large_lock, irq_flags);
         return true;  /* Was large, but corrupted — do not free */
     }
@@ -303,8 +303,8 @@ void kfree(void *ptr) {
         if (check[0] == POISON_BYTE && check[1] == POISON_BYTE &&
             check[2] == POISON_BYTE && check[3] == POISON_BYTE) {
             spin_unlock_irqrestore(&classes[cls_idx].lock, irq_flags);
-            kprintf("[PANIC] DOUBLE FREE detected at %p (class %u)\n",
-                    ptr, slab->obj_size);
+            LOG_ERROR("DOUBLE FREE detected at %p (class %u)",
+                      ptr, slab->obj_size);
             KASSERT(0);  /* Halt */
         }
     }
@@ -384,7 +384,7 @@ uint64_t kmalloc_usable_size(void *ptr) {
         uint32_t order = (uint32_t)(*(uint64_t *)base);
         /* Validate order is not corrupted before computing size */
         if (order > PMM_MAX_ORDER) {
-            kprintf("[kmalloc] corrupted large header in usable_size: order=%u\n", order);
+            LOG_ERROR("kmalloc: corrupted large header in usable_size: order=%u", order);
             return 0;
         }
         return ((1UL << order) * PAGE_SIZE) - 8;
