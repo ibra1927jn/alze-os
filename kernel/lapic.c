@@ -18,7 +18,6 @@
 #include "memory.h"
 #include "io.h"
 #include "pic.h"
-#include "kprintf.h"
 #include "log.h"
 
 /* ── MSR and port constants ─────────────────────────────────────── */
@@ -190,7 +189,7 @@ static uint32_t lapic_calibrate_timer(void) {
 
     /* If PIT did not respond, use a reasonable fallback */
     if (pit_timeout == 0) {
-        kprintf("[LAPIC] PIT calibration timeout, using fallback\n");
+        LOG_WARN("LAPIC: PIT calibration timeout, using fallback");
         elapsed = LAPIC_FALLBACK_TICKS;
     }
 
