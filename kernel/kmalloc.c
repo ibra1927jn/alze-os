@@ -27,7 +27,6 @@
 #include "memory.h"
 #include "string.h"
 #include "spinlock.h"
-#include "kprintf.h"
 #include "log.h"
 #include "panic.h"
 
@@ -433,13 +432,13 @@ void kmalloc_dump_stats(void) {
             struct slab_header *s = classes[i].slabs;
             while (s) { slab_count++; s = s->next; }
 
-            kprintf("  [%4u B] %u active, %lu allocs, %lu frees, %u slabs\n",
-                    classes[i].obj_size, in_use,
-                    classes[i].total_allocs, classes[i].total_frees,
-                    slab_count);
+            LOG_INFO("  [%4u B] %u active, %lu allocs, %lu frees, %u slabs",
+                     classes[i].obj_size, in_use,
+                     classes[i].total_allocs, classes[i].total_frees,
+                     slab_count);
         }
     }
     if (large_allocs > 0) {
-        kprintf("  [Large ] %lu allocs, %lu frees\n", large_allocs, large_frees);
+        LOG_INFO("  [Large ] %lu allocs, %lu frees", large_allocs, large_frees);
     }
 }
