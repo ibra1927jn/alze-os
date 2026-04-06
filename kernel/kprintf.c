@@ -106,6 +106,47 @@ static void kprint_signed(int64_t val, int width, char pad) {
     }
 }
 
+/* ── Format specifier dispatch ───────────────────────────────── */
+
+static void kprintf_dispatch(char spec, bool is_long, int width,
+                             char pad, bool left_align, va_list *ap) {
+    switch (spec) {
+    case 's':
+        kprint_string_padded(va_arg(*ap, const char *), width, left_align);
+        break;
+    case 'd':
+        if (is_long) kprint_signed(va_arg(*ap, int64_t), width, pad);
+        else         kprint_signed(va_arg(*ap, int), width, pad);
+        break;
+    case 'u':
+        if (is_long) kprint_unsigned(va_arg(*ap, uint64_t), 10, width, pad, false);
+        else         kprint_unsigned(va_arg(*ap, unsigned int), 10, width, pad, false);
+        break;
+    case 'x':
+        if (is_long) kprint_unsigned(va_arg(*ap, uint64_t), 16, width, pad, false);
+        else         kprint_unsigned(va_arg(*ap, unsigned int), 16, width, pad, false);
+        break;
+    case 'X':
+        if (is_long) kprint_unsigned(va_arg(*ap, uint64_t), 16, width, pad, true);
+        else         kprint_unsigned(va_arg(*ap, unsigned int), 16, width, pad, true);
+        break;
+    case 'p':
+        kprint_string_padded("0x", 0, false);
+        kprint_unsigned((uint64_t)va_arg(*ap, void *), 16, PTR_HEX_WIDTH, '0', false);
+        break;
+    case 'c':
+        kprint_char((char)va_arg(*ap, int));
+        break;
+    case '%':
+        kprint_char('%');
+        break;
+    default:
+        kprint_char('%');
+        kprint_char(spec);
+        break;
+    }
+}
+
 /* ── kprintf ──────────────────────────────────────────────────── */
 
 void kprintf(const char *fmt, ...) {
@@ -147,64 +188,7 @@ void kprintf(const char *fmt, ...) {
             if (*fmt == 'l') fmt++;  /* skip second 'l' in %lld/%llx */
         }
 
-        /* Format specifier */
-        switch (*fmt) {
-        case 's':
-            kprint_string_padded(va_arg(args, const char *), width, left_align);
-            break;
-
-        case 'd':
-            if (is_long) {
-                kprint_signed(va_arg(args, int64_t), width, pad);
-            } else {
-                kprint_signed(va_arg(args, int), width, pad);
-            }
-            break;
-
-        case 'u':
-            if (is_long) {
-                kprint_unsigned(va_arg(args, uint64_t), 10, width, pad, false);
-            } else {
-                kprint_unsigned(va_arg(args, unsigned int), 10, width, pad, false);
-            }
-            break;
-
-        case 'x':
-            if (is_long) {
-                kprint_unsigned(va_arg(args, uint64_t), 16, width, pad, false);
-            } else {
-                kprint_unsigned(va_arg(args, unsigned int), 16, width, pad, false);
-            }
-            break;
-
-        case 'X':
-            if (is_long) {
-                kprint_unsigned(va_arg(args, uint64_t), 16, width, pad, true);
-            } else {
-                kprint_unsigned(va_arg(args, unsigned int), 16, width, pad, true);
-            }
-            break;
-
-        case 'p':
-            kprint_string_padded("0x", 0, false);
-            kprint_unsigned((uint64_t)va_arg(args, void *), 16, PTR_HEX_WIDTH, '0', false);
-            break;
-
-        case 'c':
-            kprint_char((char)va_arg(args, int));
-            break;
-
-        case '%':
-            kprint_char('%');
-            break;
-
-        default:
-            /* Unknown specifier — print as-is */
-            kprint_char('%');
-            kprint_char(*fmt);
-            break;
-        }
-
+        kprintf_dispatch(*fmt, is_long, width, pad, left_align, &args);
         fmt++;
     }
 
