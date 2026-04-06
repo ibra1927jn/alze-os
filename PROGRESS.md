@@ -1,7 +1,12 @@
 # PROGRESS.md — Project Status
 
 ## In progress
-- [2026-04-06] | Heartbeat maintenance: pass 18 refactoring | 100%
+- [2026-04-06] | Heartbeat maintenance: pass 19 magic-number cleanup | 100%
+
+## Session 2026-04-06 (heartbeat pass 19)
+- refactor(kernel): replace magic 10 (PIT tick period) with TIMER_TICK_MS in sched.c, main.c, runtime_tests.c | 8902699
+- refactor(main): derive PIT frequency from TIMER_TICK_MS instead of hardcoding 100 | 3a6c1c4
+- Build: clean (unchanged), Tests: 29/29 passing (unchanged)
 
 ## Session 2026-04-06 (heartbeat pass 18)
 - refactor(pci): extract common bus scan loop into pci_scan callback helper (150 → 130 lines) | c927f79
