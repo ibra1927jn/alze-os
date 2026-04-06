@@ -33,6 +33,7 @@
 #include "xhci.h"
 #include "selftest.h"
 #include "pic.h"
+#include "ktimer.h"
 #include "percpu.h"
 #include "cpuidle.h"
 
@@ -158,7 +159,7 @@ extern void workqueue_process_system(void);
 /* ── Print boot banner ────────────────────────────────────────── */
 
 static void print_boot_banner(int failures) {
-    uint64_t uptime_ms = pit_get_ticks() * 10;  /* 100 Hz = 10ms per tick */
+    uint64_t uptime_ms = pit_get_ticks() * TIMER_TICK_MS;
     kprintf("\n==============================\n");
     kprintf("  Anykernel OS v0.7.0\n");
     kprintf("  %d tests, %d failures\n", selftest_count(), failures);

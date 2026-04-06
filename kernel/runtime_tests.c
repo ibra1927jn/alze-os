@@ -11,6 +11,7 @@
 #include "spinlock.h"
 #include "msgqueue.h"
 #include "pic.h"
+#include "ktimer.h"
 #include "pmm.h"
 #include "kprintf.h"
 #include "log.h"
@@ -126,7 +127,7 @@ void run_runtime_tests(void) {
     kprintf("\n--- [TEST 4] Timer accuracy ---\n");
     int tt = task_create("timer-test", timer_test_fn);
     task_join((uint32_t)tt);
-    uint64_t sleep_ms = (sleep_end_tick - sleep_start_tick) * 10;
+    uint64_t sleep_ms = (sleep_end_tick - sleep_start_tick) * TIMER_TICK_MS;
     if (sleep_ms >= TIMER_TOLERANCE_LO && sleep_ms <= TIMER_TOLERANCE_HI)
         LOG_OK("Timer PASSED: sleep(%dms) = %lu ms", TIMER_EXPECTED_MS, sleep_ms);
     else

@@ -27,6 +27,7 @@
 #include "kprintf.h"
 #include "log.h"
 #include "pic.h"
+#include "ktimer.h"
 #include "waitqueue.h"
 #include "panic.h"
 #include "compiler.h"
@@ -307,7 +308,7 @@ void task_sleep(uint64_t ms) {
     uint64_t irq_flags;
     spin_lock_irqsave(&sched_lock, &irq_flags);
 
-    uint64_t ticks = ms / 10;  /* 100 Hz PIT = 10ms/tick */
+    uint64_t ticks = ms / TIMER_TICK_MS;
     if (ticks == 0) ticks = 1;
 
     struct task *self = get_current();
