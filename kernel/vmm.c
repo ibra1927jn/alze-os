@@ -546,7 +546,54 @@ void vmm_init(void) {
              vmm_tables_allocated, vmm_tables_allocated * 4);
 }
 
+/* ── Shared page-table walker ──────────────────────────────────── */
+
+/* Callback invoked for every present leaf entry (4KB or 2MB page).
+ * pte:      the page table entry value
+ * is_huge:  true if this is a 2MB huge page (PD-level entry)
+ * ctx:      opaque context pointer for the caller */
+typedef void (*vmm_pte_visitor)(uint64_t pte, bool is_huge, void *ctx);
+
+/* Walk all present leaf entries in the kernel page tables. */
+static void vmm_walk_all_entries(vmm_pte_visitor visit, void *ctx) {
+    uint64_t *pml4 = (uint64_t *)PHYS2VIRT(pml4_phys);
+
+    for (int i = 0; i < PAGE_TABLE_ENTRIES; i++) {
+        if (!(pml4[i] & PTE_PRESENT)) continue;
+        uint64_t *pdpt = (uint64_t *)PHYS2VIRT(pte_to_phys(pml4[i]));
+
+        for (int j = 0; j < PAGE_TABLE_ENTRIES; j++) {
+            if (!(pdpt[j] & PTE_PRESENT)) continue;
+            if (pdpt[j] & PTE_HUGE) continue;  /* 1GB page — skip */
+
+            uint64_t *pd = (uint64_t *)PHYS2VIRT(pte_to_phys(pdpt[j]));
+            for (int k = 0; k < PAGE_TABLE_ENTRIES; k++) {
+                if (!(pd[k] & PTE_PRESENT)) continue;
+                if (pd[k] & PTE_HUGE) {
+                    visit(pd[k], true, ctx);
+                    continue;
+                }
+
+                uint64_t *pt = (uint64_t *)PHYS2VIRT(pte_to_phys(pd[k]));
+                for (int l = 0; l < PAGE_TABLE_ENTRIES; l++) {
+                    if (pt[l] & PTE_PRESENT)
+                        visit(pt[l], false, ctx);
+                }
+            }
+        }
+    }
+}
+
 /* ── Diagnostics: dump VMM state ──────────────────────────────────── */
+
+struct dump_ctx { uint32_t mapped_4k; uint32_t mapped_2m; };
+
+static void dump_visitor(uint64_t pte, bool is_huge, void *ctx) {
+    (void)pte;
+    struct dump_ctx *d = ctx;
+    if (is_huge) d->mapped_2m++;
+    else         d->mapped_4k++;
+}
 
 void vmm_dump_tables(void) {
     if (pml4_phys == 0) {
@@ -558,36 +605,13 @@ void vmm_dump_tables(void) {
     kprintf("  PML4: 0x%lx, %lu tables allocated (%lu KB)\n",
             pml4_phys, vmm_tables_allocated, vmm_tables_allocated * 4);
 
-    uint64_t *pml4 = (uint64_t *)PHYS2VIRT(pml4_phys);
-    uint32_t mapped_4k = 0, mapped_2m = 0;
+    struct dump_ctx d = { 0, 0 };
+    vmm_walk_all_entries(dump_visitor, &d);
 
-    for (int i = 0; i < PAGE_TABLE_ENTRIES; i++) {
-        if (!(pml4[i] & PTE_PRESENT)) continue;
-        uint64_t *pdpt = (uint64_t *)PHYS2VIRT(pte_to_phys(pml4[i]));
-
-        for (int j = 0; j < PAGE_TABLE_ENTRIES; j++) {
-            if (!(pdpt[j] & PTE_PRESENT)) continue;
-            if (pdpt[j] & PTE_HUGE) continue;  /* 1GB page */
-
-            uint64_t *pd = (uint64_t *)PHYS2VIRT(pte_to_phys(pdpt[j]));
-            for (int k = 0; k < PAGE_TABLE_ENTRIES; k++) {
-                if (!(pd[k] & PTE_PRESENT)) continue;
-                if (pd[k] & PTE_HUGE) {
-                    mapped_2m++;
-                } else {
-                    uint64_t *pt = (uint64_t *)PHYS2VIRT(pte_to_phys(pd[k]));
-                    for (int l = 0; l < PAGE_TABLE_ENTRIES; l++) {
-                        if (pt[l] & PTE_PRESENT) mapped_4k++;
-                    }
-                }
-            }
-        }
-    }
-
-    kprintf("  Mapped: %u x 4KB pages + %u x 2MB huge pages\n", mapped_4k, mapped_2m);
+    kprintf("  Mapped: %u x 4KB pages + %u x 2MB huge pages\n", d.mapped_4k, d.mapped_2m);
     kprintf("  Total mapped: %lu KB + %lu MB = %lu MB\n",
-            (uint64_t)mapped_4k * 4, (uint64_t)mapped_2m * 2,
-            ((uint64_t)mapped_4k * 4) / 1024 + (uint64_t)mapped_2m * 2);
+            (uint64_t)d.mapped_4k * 4, (uint64_t)d.mapped_2m * 2,
+            ((uint64_t)d.mapped_4k * 4) / 1024 + (uint64_t)d.mapped_2m * 2);
 }
 
 uint64_t vmm_tables_count(void) {
@@ -596,42 +620,18 @@ uint64_t vmm_tables_count(void) {
 
 /* ── W^X Audit (OpenBSD W^X + macOS Hardened Runtime) ──────────── */
 
+static void wx_visitor(uint64_t pte, bool is_huge, void *ctx) {
+    (void)is_huge;
+    uint32_t *violations = ctx;
+    if ((pte & PTE_WRITE) && !(pte & PTE_NX))
+        (*violations)++;
+}
+
 uint32_t vmm_audit_wx(void) {
     if (pml4_phys == 0) return 0;
 
     uint32_t violations = 0;
-    uint64_t *pml4 = (uint64_t *)PHYS2VIRT(pml4_phys);
-
-    for (int i = 0; i < PAGE_TABLE_ENTRIES; i++) {
-        if (!(pml4[i] & PTE_PRESENT)) continue;
-        uint64_t *pdpt = (uint64_t *)PHYS2VIRT(pte_to_phys(pml4[i]));
-
-        for (int j = 0; j < PAGE_TABLE_ENTRIES; j++) {
-            if (!(pdpt[j] & PTE_PRESENT)) continue;
-            if (pdpt[j] & PTE_HUGE) continue;
-
-            uint64_t *pd = (uint64_t *)PHYS2VIRT(pte_to_phys(pdpt[j]));
-            for (int k = 0; k < PAGE_TABLE_ENTRIES; k++) {
-                if (!(pd[k] & PTE_PRESENT)) continue;
-                if (pd[k] & PTE_HUGE) {
-                    /* 2MB page: check W^X */
-                    if ((pd[k] & PTE_WRITE) && !(pd[k] & PTE_NX)) {
-                        violations++;
-                    }
-                    continue;
-                }
-
-                uint64_t *pt = (uint64_t *)PHYS2VIRT(pte_to_phys(pd[k]));
-                for (int l = 0; l < PAGE_TABLE_ENTRIES; l++) {
-                    if (!(pt[l] & PTE_PRESENT)) continue;
-                    /* W^X: both Writable AND Executable = violation */
-                    if ((pt[l] & PTE_WRITE) && !(pt[l] & PTE_NX)) {
-                        violations++;
-                    }
-                }
-            }
-        }
-    }
+    vmm_walk_all_entries(wx_visitor, &violations);
 
     if (violations == 0) {
         LOG_OK("VMM: W^X audit PASSED — 0 violations");
