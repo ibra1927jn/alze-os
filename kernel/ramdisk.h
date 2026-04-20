@@ -30,17 +30,4 @@ struct ramdisk {
  */
 void ramdisk_init(void);
 
-/*
- * Get ramdisk base address and size.
- * Returns NULL if no ramdisk loaded.
- */
-void *ramdisk_get_base(void);
-uint64_t ramdisk_get_size(void);
-
-/*
- * Read bytes from ramdisk at given offset.
- * Returns bytes read, or negative errno.
- */
-int64_t ramdisk_read(uint64_t offset, void *buf, uint64_t count);
-
 #endif /* RAMDISK_H */

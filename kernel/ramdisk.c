@@ -100,24 +100,3 @@ void ramdisk_init(void) {
         LOG_INFO("ramdisk: module is not ext2 (or corrupt), skipping fs mount");
     }
 }
-
-/* ── Accessors ──────────────────────────────────────────────────── */
-
-void *ramdisk_get_base(void) {
-    return rd.loaded ? rd.base : 0;
-}
-
-uint64_t ramdisk_get_size(void) {
-    return rd.loaded ? rd.size : 0;
-}
-
-int64_t ramdisk_read(uint64_t offset, void *buf, uint64_t count) {
-    if (!rd.loaded) return -EIO;
-    if (!buf) return -EINVAL;
-    if (offset >= rd.size) return 0;
-    if (count > rd.size - offset) {
-        count = rd.size - offset;
-    }
-    memcpy(buf, (uint8_t *)rd.base + offset, count);
-    return (int64_t)count;
-}
