@@ -72,9 +72,6 @@ static inline bool workqueue_pending(struct workqueue *wq) {
 /* Global system work queue (one worker handles all) */
 extern struct workqueue system_wq;
 
-/* Initialize the system work queue */
-void workqueue_init_system(void);
-
 /* Process system work queue (called from idle task) */
 void workqueue_process_system(void);
 

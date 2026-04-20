@@ -3,16 +3,15 @@
  */
 
 #include "workqueue_def.h"
-#include "log.h"
 
 /* ── Global system work queue ────────────────────────────────── */
 
-struct workqueue system_wq;
-
-void workqueue_init_system(void) {
-    workqueue_init(&system_wq, "system-wq");
-    LOG_OK("System work queue initialized");
-}
+struct workqueue system_wq = {
+    .items     = LIST_HEAD_INIT(system_wq.items),
+    .lock      = SPINLOCK_INIT,
+    .name      = "system-wq",
+    .processed = 0,
+};
 
 /* ── Schedule work ───────────────────────────────────────────── */
 
