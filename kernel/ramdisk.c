@@ -19,6 +19,9 @@
 #include "errno.h"
 #include "vfs.h"
 
+#include <stdint.h>
+#include <stdbool.h>
+
 /* Include limine protocol for module request */
 #include "limine.h"
 
@@ -31,6 +34,12 @@ static volatile struct limine_module_request module_request = {
 };
 
 /* ── Global state ──────────────────────────────────────────────── */
+
+struct ramdisk {
+    void     *base;   /* Virtual address of the loaded module */
+    uint64_t  size;   /* Size in bytes */
+    bool      loaded; /* true if a module was found and loaded */
+};
 
 static struct ramdisk rd = {
     .base   = 0,

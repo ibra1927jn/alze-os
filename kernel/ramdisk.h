@@ -13,16 +13,6 @@
 #ifndef RAMDISK_H
 #define RAMDISK_H
 
-#include <stdint.h>
-#include <stdbool.h>
-
-/* Ramdisk state */
-struct ramdisk {
-    void     *base;   /* Virtual address of the loaded module */
-    uint64_t  size;   /* Size in bytes */
-    bool      loaded; /* true if a module was found and loaded */
-};
-
 /*
  * Initialize ramdisk from Limine boot modules.
  * Searches for the first available module and exposes it as a ramdisk.
