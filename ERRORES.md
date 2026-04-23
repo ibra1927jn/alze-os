@@ -6,6 +6,7 @@
 ---
 
 ## Errores registrados
+- [2026-04-23] | kernel/sched.c | KASSERT(init_task != 0) en sched_init fallaba build con -Werror=implicit-function-declaration porque faltaba #include "panic.h" | Se agrego #include "panic.h" al bloque de includes
 - [2026-03-28] | kernel/sched.c | bsfq tiene resultado indefinido cuando input == 0, bitmap_find_first podia devolver basura si prio_bitmap era 0 y bitmap_dequeue accedia a un indice invalido | Se agrego check bm == 0 → return -1 en bitmap_find_first, y guard p < 0 en bitmap_dequeue
 - [2026-03-28] | kernel/pmm.h | El campo _reserved de struct page se usaba informalmente como ref counter para COW, sin API ni proteccion | Se reemplazo _reserved por ref_count (uint32_t) con API formal: pmm_ref_inc/pmm_ref_dec/pmm_ref_get, protegidas por spinlock
 - [2026-03-28] | kernel/vmm.c | vmm_flush_tlb solo invalidaba TLB local, en SMP las demas CPUs mantendrian entradas obsoletas causando corrupcion de memoria | Se implemento infraestructura TLB shootdown via IPI (vector 0xFE), wired a vmm_flush_tlb. No-op seguro en single-core hasta que LAPIC este disponible

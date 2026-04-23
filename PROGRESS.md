@@ -4,6 +4,7 @@
 - [2026-03-28] | Quality/hardening pass: sched.c, vmm.c, kmalloc.c, string.c, main.c (12 fixes) | 100%
 
 ## Completado
+- [2026-04-23] | Fix build error en sched.c (KASSERT sin panic.h include, -Werror implicit-function-declaration) | Commit c775a61
 - [2026-03-28] | TLB shootdown IPI infrastructure (vector 0xFE, tlb_shootdown.c/.h, wired to vmm_flush_tlb) | Pending commit
 - [2026-03-28] | Fix bitmap_find_first UB (bsfq with input 0 in sched.c) | Pending commit
 - [2026-03-28] | Fix PMM ref counting (_reserved → ref_count with proper API) | Pending commit
