@@ -33,6 +33,7 @@
 #include "vmm.h"
 #include "percpu.h"
 #include "errno.h"
+#include "panic.h"
 
 #include <stdint.h>
 #include <stdbool.h>
